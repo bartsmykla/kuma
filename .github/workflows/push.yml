@@ -33,6 +33,8 @@ jobs:
 
           const { before, after, commits = [] } = context.payload;
 
+          const pr = ${{ toJSON(steps.findPR.outputs) }};
+
           github.repos.createDispatchEvent({
             owner: 'bartsmykla',
             repo: 'kong-mesh',
@@ -41,8 +43,8 @@ jobs:
               before,
               after,
               pr: {
-                number: ${{ steps.findPR.outputs.number }},
-                title: ${{ steps.findPR.outputs.title }},
+                number: pr.number,
+                title: pr.title,
               },
               commits: commits.map(({ id }) => id),
             },
