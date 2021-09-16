@@ -40,7 +40,10 @@ jobs:
             client_payload: {
               before,
               after,
-              pr: ${{ toJSON(steps.findPR.outputs) }},
+              pr: {
+                number: ${{ steps.findPR.outputs.number }},
+                title: ${{ steps.findPR.outputs.title }},
+              },
               commits: commits.map(({ id }) => id),
             },
           });
