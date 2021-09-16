@@ -19,7 +19,7 @@ jobs:
       with:
         state: all
 
-    - run: "echo \"Your PR is ${PR}\""
+    - run: "echo 'Your PR is ${PR}'"
       if: success() && steps.findPR.outputs.number
       env:
         PR: ${{ steps.findPR.outputs.pr }}
