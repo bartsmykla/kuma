@@ -70,7 +70,7 @@ jobs:
                   login: mergedBy.login,
                   id: mergedBy.id,
                 },
-                labels,
+                labels: labels.reduce((acc, { id, name, description }) => [...acc, { id, name, description }], []),
               },
               commits: commits.map(({ id }) => id),
             },
