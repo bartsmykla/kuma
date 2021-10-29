@@ -26,6 +26,7 @@ jobs:
         script: |
           const parsePR = require('./.github/scripts/parsePR.js');
           const [ owner, repo ] = '${{ env.GITHUB_REPOSITORY }}'.split('/');
+          console.log({ owner, repo });
           const { before, after, commits = [] } = context.payload;
           const pr = await parsePR(
             { github, owner, repo },
