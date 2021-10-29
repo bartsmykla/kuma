@@ -24,33 +24,16 @@ jobs:
       with:
         github-token: ${{ secrets.GH_TOKEN }}
         script: |
+          const parsePR = require('./.github/scripts/parsePR.js');
           const owner = 'bartsmykla';
-          console.log("hello world");
+          const kumaRepoName = 'kuma';
+
           console.log({ context });
 
           const { before, after, commits = [] } = context.payload;
-
-          const pr = ${{ toJSON(steps.findPR.outputs) }};
+          const pr = await parsePR({ github, owner, kumaRepoName }, ${{ toJSON(steps.findPR.outputs) }});
 
           console.log("pr", pr);
-
-          // TODO: add error checking
-          const fullPR = await github.rest.pulls.get({
-            owner,
-            repo: 'kuma',
-            pull_number: pr.number,
-          });
-
-          const { data = {} } = fullPR;
-
-          const {
-            user = {},
-            merged_by: mergedBy = {},
-            labels = [],
-          } = data
-
-          console.log("fullPR", fullPR);
-          console.log("labels", labels);
 
           github.rest.repos.createDispatchEvent({
             owner,
@@ -59,19 +42,7 @@ jobs:
             client_payload: {
               before,
               after,
-              pr: {
-                number: pr.number,
-                title: pr.title,
-                openedBy: {
-                  login: user.login,
-                  id: user.id,
-                },
-                mergedBy: {
-                  login: mergedBy.login,
-                  id: mergedBy.id,
-                },
-                labels: labels.reduce((acc, { id, name, description }) => [...acc, { id, name, description }], []),
-              },
+              pr,
               commits: commits.map(({ id }) => id),
             },
           });
