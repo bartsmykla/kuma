@@ -16,6 +16,8 @@ module.exports = async ({
       pull_number: number,
     });
 
+    console.log('data', data);
+
     const {
       user = {},
       merged_by: mergedBy = {},
