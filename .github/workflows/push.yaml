@@ -24,7 +24,6 @@ jobs:
       with:
         github-token: ${{ secrets.GH_TOKEN }}
         script: |
-          console.log({ env });
           console.log("GITHUB_REPOSITORY", '${{ github.repository }}');
           const parsePR = require('./.github/scripts/parsePR.js');
           const [ owner, repo ] = '${{ github.repository }}'.split('/');
