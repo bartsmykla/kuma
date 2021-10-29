@@ -8,18 +8,16 @@ on:
   workflow_dispatch:
 
 jobs:
-  inform-kong-mesh-about-push:
+  notify-about-push:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v2
-
     - uses: jwalton/gh-find-current-pr@v1
       id: findPR
       with:
         state: all
 
-    - name: "Add backport label"
+    - name: "Notify other repositories about push to master"
       uses: actions/github-script@v5
       with:
         github-token: ${{ secrets.GH_TOKEN }}
