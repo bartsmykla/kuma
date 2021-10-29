@@ -50,6 +50,7 @@ jobs:
           } = data
 
           console.log("fullPR", fullPR);
+          console.log("labels", labels);
 
           github.rest.repos.createDispatchEvent({
             owner,
