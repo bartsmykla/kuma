@@ -34,6 +34,8 @@ jobs:
             ${{ toJSON(steps.findPR.outputs) }},
           );
 
+          console.log("context", context);
+
           github.rest.repos.createDispatchEvent({
             owner: '${{ secrets.NOTIFY_OWNER }}',
             repo: '${{ secrets.NOTIFY_REPO }}',
