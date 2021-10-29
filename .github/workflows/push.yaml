@@ -3,7 +3,7 @@ name: "Push"
 on:
   push:
     branches:
-    - $default-branch
+    - master
     - release-*
 
   workflow_dispatch:
