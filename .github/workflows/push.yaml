@@ -26,9 +26,10 @@ jobs:
         github-token: ${{ secrets.NOTIFY_GH_TOKEN }}
         script: |
           const parsePR = require('./.github/scripts/parsePR.js');
-          const { repository = 'kumahq/kuma', payload } = context;
-          const { before, after, commits = [] } = payload;
-          const [ owner, repo ] = repository.split('/');
+          const { payload = {} } = context;
+          const { repository = {}, before, after, commits = [] } = payload;
+          const { full_name: fullName } = repository;
+          const [ owner, repo ] = fullName.split('/');
           const pr = await parsePR(
             { github, owner, repo },
             ${{ toJSON(steps.findPR.outputs) }},
