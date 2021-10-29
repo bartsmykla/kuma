@@ -24,10 +24,8 @@ jobs:
       with:
         github-token: ${{ secrets.GH_TOKEN }}
         script: |
-          console.log("GITHUB_REPOSITORY", '${{ github.repository }}');
           const parsePR = require('./.github/scripts/parsePR.js');
-          const [ owner, repo ] = '${{ github.repository }}'.split('/');
-          console.log({ owner, repo });
+          const [ owner, repo ] = github.repository.split('/');
           const { before, after, commits = [] } = context.payload;
           const pr = await parsePR(
             { github, owner, repo },
