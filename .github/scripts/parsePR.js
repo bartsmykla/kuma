@@ -1,7 +1,7 @@
 module.exports = async ({
   github = {},
   owner = 'kumahq',
-  kumaRepoName = 'kuma',
+  repo = 'kuma',
 }, foundPR = null) => {
   if (!foundPR) {
     return null
@@ -10,13 +10,11 @@ module.exports = async ({
   try {
     const { number, title } = foundPR;
 
-    const fullPR = await github.rest.pulls.get({
+    const { data = {} } = await github.rest.pulls.get({
       owner,
-      repo: kumaRepoName,
+      repo,
       pull_number: number,
     });
-
-    const { data = {} } = fullPR;
 
     const {
       user = {},
@@ -24,13 +22,11 @@ module.exports = async ({
       labels: fullLabels = [],
     } = data;
 
-    const labels = fullLabels.reduce((acc, { id, name, description }) => [
-      ...acc,
-      { id, name, description },
-    ], []);
-
-    console.log("fullPR", fullPR);
-    console.log("labels", labels);
+    const labels = fullLabels.map(({ id, name, description }) => ({
+      id,
+      name,
+      description,
+    }));
 
     return {
       number: number,

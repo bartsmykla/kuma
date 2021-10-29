@@ -25,20 +25,17 @@ jobs:
         github-token: ${{ secrets.GH_TOKEN }}
         script: |
           const parsePR = require('./.github/scripts/parsePR.js');
-          const owner = 'bartsmykla';
-          const kumaRepoName = 'kuma';
-
-          console.log({ context });
-
+          const [ owner, repo ] = ${{ env.GITHUB_REPOSITORY }}.split('/');
           const { before, after, commits = [] } = context.payload;
-          const pr = await parsePR({ github, owner, kumaRepoName }, ${{ toJSON(steps.findPR.outputs) }});
-
-          console.log("pr", pr);
+          const pr = await parsePR(
+            { github, owner, repo },
+            ${{ toJSON(steps.findPR.outputs) }},
+          );
 
           github.rest.repos.createDispatchEvent({
-            owner,
-            repo: 'kong-mesh',
-            event_type: 'abracadabra',
+            owner: ${{ secrets.NOTIFY_OWNER }},
+            repo: ${{ secrets.NOTIFY_REPO }},
+            event_type: ${{ secrets.NOTIFY_EVENT_TYPE }},
             client_payload: {
               before,
               after,
