@@ -70,6 +70,7 @@ jobs:
                   login: mergedBy.login,
                   id: mergedBy.id,
                 },
+                labels,
               },
               commits: commits.map(({ id }) => id),
             },
