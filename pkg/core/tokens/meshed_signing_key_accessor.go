@@ -35,16 +35,18 @@ func (s *meshedSigningKeyAccessor) GetPublicKey(ctx context.Context, serialNumbe
 	if err != nil {
 		return nil, err
 	}
-	key, err := keyBytesToRsaKey(keyBytes)
+	key, err := keyBytesToRsaPrivateKey(keyBytes)
 	if err != nil {
 		return nil, err
 	}
 	return &key.PublicKey, nil
 }
 
-func (s *meshedSigningKeyAccessor) getKeyBytes(ctx context.Context, serialNumber int) ([]byte, error) {
-	resource := system.NewSecretResource()
-	if err := s.resManager.Get(ctx, resource, store.GetBy(SigningKeyResourceKey(s.signingKeyPrefix, serialNumber, s.mesh))); err != nil {
+func (s *meshedSigningKeyAccessor) getKey(ctx context.Context, serialNumber int) (*system.GlobalSecretResource, error) {
+	resourceKey := SigningKeyResourceKey(s.signingKeyPrefix, serialNumber, s.mesh)
+	resource := system.NewGlobalSecretResource()
+
+	if err := s.resManager.Get(ctx, resource, store.GetBy(resourceKey)); err != nil {
 		if store.IsResourceNotFound(err) {
 			return nil, &SigningKeyNotFound{
 				SerialNumber: serialNumber,
@@ -52,11 +54,18 @@ func (s *meshedSigningKeyAccessor) getKeyBytes(ctx context.Context, serialNumber
 				Mesh:         s.mesh,
 			}
 		}
+
 		return nil, errors.Wrap(err, "could not retrieve signing key")
 	}
-	return resource.Spec.GetData().GetValue(), nil
+
+	return resource, nil
 }
 
 func (s *meshedSigningKeyAccessor) GetLegacyKey(ctx context.Context, serialNumber int) ([]byte, error) {
-	return s.getKeyBytes(ctx, serialNumber)
+	keyResource, err := s.getKey(ctx, serialNumber)
+	if err != nil {
+		return nil, err
+	}
+
+	return keyResource.Spec.GetData().GetValue(), nil
 }

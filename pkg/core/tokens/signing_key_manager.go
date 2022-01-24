@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/golang/protobuf/ptypes/wrappers"
+	rsa2 "github.com/kumahq/kuma/pkg/util/rsa"
 	"github.com/pkg/errors"
 
 	system_proto "github.com/kumahq/kuma/api/system/v1alpha1"
@@ -74,7 +75,7 @@ func latestSigningKey(list model.ResourceList, prefix string, mesh string) (*rsa
 		}
 	}
 
-	key, err := keyBytesToRsaKey(signingKey.GetSpec().(*system_proto.Secret).GetData().GetValue())
+	key, err := rsa2.keyBytesToRsaPrivateKey(signingKey.GetSpec().(*system_proto.Secret).GetData().GetValue())
 	if err != nil {
 		return nil, 0, err
 	}

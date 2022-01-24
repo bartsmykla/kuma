@@ -76,6 +76,18 @@ func (m *DataplaneMetadata) GetZoneIngressResource() *core_mesh.ZoneIngressResou
 	return nil
 }
 
+// GetZoneEgressResource returns the underlying ZoneEgressResource, if present.
+// If the resource is of a different type, it returns nil.
+func (m *DataplaneMetadata) GetZoneEgressResource() *core_mesh.ZoneEgressResource {
+	if m != nil {
+		if z, ok := m.Resource.(*core_mesh.ZoneEgressResource); ok {
+			return z
+		}
+	}
+
+	return nil
+}
+
 func (m *DataplaneMetadata) GetProxyType() mesh_proto.ProxyType {
 	if m == nil || m.ProxyType == "" {
 		return mesh_proto.DataplaneProxyType

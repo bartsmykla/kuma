@@ -110,6 +110,16 @@ func (b *bootstrapGenerator) Generate(ctx context.Context, request types.Bootstr
 			return nil, errors.Errorf("Resource precondition failed: Port %d requested as both admin and inbound port.", params.AdminPort)
 		}
 		params.Service = "ingress"
+	case mesh_proto.EgressProxyType:
+		zoneEgress, err := b.zoneEgressFor(ctx, request, proxyId)
+		if err != nil {
+			return nil, err
+		}
+		// The admin port in kuma-dp is always bound to 127.0.0.1
+		if zoneEgress.UsesInboundInterface(core_mesh.IPv4Loopback, params.AdminPort) {
+			return nil, errors.Errorf("Resource precondition failed: Port %d requested as both admin and inbound port.", params.AdminPort)
+		}
+		params.Service = "ingress"
 	case mesh_proto.DataplaneProxyType, "":
 		params.HdsEnabled = b.hdsEnabled
 		dataplane, err := b.dataplaneFor(ctx, request, proxyId)
