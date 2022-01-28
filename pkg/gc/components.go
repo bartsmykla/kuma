@@ -54,6 +54,7 @@ func setupFinalizer(rt runtime.Runtime) error {
 		resourceTypes = []model.ResourceType{
 			mesh.DataplaneInsightType,
 			mesh.ZoneIngressInsightType,
+			mesh.ZoneEgressInsightType,
 		}
 	case config_core.Global:
 		newTicker = func() *time.Ticker {

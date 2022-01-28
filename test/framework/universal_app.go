@@ -23,6 +23,7 @@ type AppMode string
 const (
 	AppModeCP              = "kuma-cp"
 	AppIngress             = "ingress"
+	AppEgress              = "egress"
 	AppModeEchoServer      = "echo-server"
 	AppModeHttpsEchoServer = "https-echo-server"
 	sshPort                = "22"
@@ -48,6 +49,13 @@ networking:
   address: {{ address }}
   advertisedAddress: %s
   advertisedPort: %d
+  port: %d
+`
+	ZoneEgress = `
+type: ZoneEgress
+name: egress
+networking:
+  address: {{ address }}
   port: %d
 `
 

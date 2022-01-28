@@ -317,6 +317,31 @@ func (c *K8sControlPlane) GenerateZoneIngressToken(zone string) (string, error) 
 	)
 }
 
+func (c *K8sControlPlane) GenerateZoneEgressToken(zone string) (string, error) {
+	var token string
+	if !c.localhostIsAdmin {
+		t, err := c.retrieveAdminToken()
+		if err != nil {
+			return "", err
+		}
+		token = t
+	}
+	return http_helper.HTTPDoWithRetryE(
+		c.t,
+		"POST",
+		c.GetAPIServerAddress()+"/tokens/zone",
+		[]byte(fmt.Sprintf(`{"zone": "%s"}`, zone)),
+		map[string]string{
+			"content-type":  "application/json",
+			"authorization": "Bearer " + token,
+		},
+		200,
+		DefaultRetries,
+		DefaultTimeout,
+		&tls.Config{},
+	)
+}
+
 // UpdateObject fetches an object and updates it after the update function is applied to it.
 func (c *K8sControlPlane) UpdateObject(
 	typeName string,

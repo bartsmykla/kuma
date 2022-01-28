@@ -4,6 +4,7 @@ import (
 	"context"
 	"net"
 
+	"github.com/kumahq/kuma/pkg/core/managers/apis/zoneegressinsight"
 	"github.com/pkg/errors"
 
 	"github.com/kumahq/kuma/pkg/api-server/customization"
@@ -384,6 +385,11 @@ func initializeResourceManager(cfg kuma_cp.Config, builder *core_runtime.Builder
 	customizableManager.Customize(
 		mesh.ZoneIngressInsightType,
 		zoneingressinsight.NewZoneIngressInsightManager(builder.ResourceStore(), builder.Config().Metrics.Dataplane),
+	)
+
+	customizableManager.Customize(
+		mesh.ZoneEgressInsightType,
+		zoneegressinsight.NewZoneEgressInsightManager(builder.ResourceStore(), builder.Config().Metrics.Dataplane),
 	)
 
 	var cipher secret_cipher.Cipher
