@@ -6,6 +6,7 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 
 	mesh_proto "github.com/kumahq/kuma/api/mesh/v1alpha1"
+	"github.com/kumahq/kuma/pkg/core"
 	"github.com/kumahq/kuma/pkg/util/proto"
 	xds_context "github.com/kumahq/kuma/pkg/xds/context"
 	"github.com/kumahq/kuma/pkg/xds/envoy"
@@ -33,8 +34,10 @@ func (c *ClientSideMTLSConfigurer) Configure(cluster *envoy_cluster.Cluster) err
 	}
 
 	mesh := c.Ctx.Mesh.Resource.GetMeta().GetName()
+	core.Log.Info("c.Tags", "c.Tags", c.Tags)
 	// there might be a situation when there are multiple sam tags passed here for example two outbound listeners with the same tags, therefore we need to distinguish between them.
 	distinctTags := envoy.DistinctTags(c.Tags)
+	core.Log.Info("distinctTags", "distinctTags", distinctTags)
 	switch {
 	case len(distinctTags) == 0:
 		transportSocket, err := c.createTransportSocket("")
@@ -43,6 +46,7 @@ func (c *ClientSideMTLSConfigurer) Configure(cluster *envoy_cluster.Cluster) err
 		}
 		cluster.TransportSocket = transportSocket
 	case len(distinctTags) == 1:
+		core.Log.Info("c.Tags[0].WithTags(\"mesh\", mesh)", "tags", c.Tags[0].WithTags("mesh", mesh))
 		transportSocket, err := c.createTransportSocket(tls.SNIFromTags(c.Tags[0].WithTags("mesh", mesh)))
 		if err != nil {
 			return err
@@ -51,6 +55,7 @@ func (c *ClientSideMTLSConfigurer) Configure(cluster *envoy_cluster.Cluster) err
 	default:
 		for _, tags := range distinctTags {
 			sni := tls.SNIFromTags(tags.WithTags("mesh", mesh))
+			core.Log.Info("tags.WithTags(\"mesh\", mesh)", "tags", tags.WithTags("mesh", mesh))
 			transportSocket, err := c.createTransportSocket(sni)
 			if err != nil {
 				return err
@@ -68,6 +73,7 @@ func (c *ClientSideMTLSConfigurer) Configure(cluster *envoy_cluster.Cluster) err
 }
 
 func (c *ClientSideMTLSConfigurer) createTransportSocket(sni string) (*envoy_core.TransportSocket, error) {
+	core.Log.Info("error sni", "sni", sni)
 	tlsContext, err := envoy_tls.CreateUpstreamTlsContext(c.Ctx, c.UpstreamService, sni)
 	if err != nil {
 		return nil, err

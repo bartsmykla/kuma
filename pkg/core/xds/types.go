@@ -9,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 
 	mesh_proto "github.com/kumahq/kuma/api/mesh/v1alpha1"
+	"github.com/kumahq/kuma/pkg/core/datasource"
 	core_mesh "github.com/kumahq/kuma/pkg/core/resources/apis/mesh"
 	core_model "github.com/kumahq/kuma/pkg/core/resources/model"
 	envoy_common "github.com/kumahq/kuma/pkg/xds/envoy"
@@ -122,27 +123,36 @@ const (
 	SocketAddressProtocolUDP SocketAddressProtocol = 1
 )
 
+// TODO (bartsmykla): remove `json:",omitempty"`
+
 // Proxy contains required data for generating XDS config that is specific to a data plane proxy.
 // The data that is specific for the whole mesh should go into MeshContext.
 type Proxy struct {
 	Id          ProxyId
-	APIVersion  envoy_common.APIVersion // todo(jakubdyszkiewicz) consider moving APIVersion here. pkg/core should not depend on pkg/xds. It should be other way around.
-	Dataplane   *core_mesh.DataplaneResource
-	ZoneIngress *core_mesh.ZoneIngressResource
-	Metadata    *DataplaneMetadata
-	Routing     Routing
-	Policies    MatchedPolicies
+	APIVersion  envoy_common.APIVersion        // todo(jakubdyszkiewicz) consider moving APIVersion here. pkg/core should not depend on pkg/xds. It should be other way around.
+	Dataplane   *core_mesh.DataplaneResource   `json:",omitempty"`
+	ZoneIngress *core_mesh.ZoneIngressResource `json:",omitempty"`
+	Metadata    *DataplaneMetadata             `json:",omitempty"`
+	Routing     Routing                        `json:",omitempty"`
+	Policies    MatchedPolicies                `json:",omitempty"`
 
 	// ZoneEgressProxy is available only when XDS is generated for ZoneEgress data plane proxy.
 	ZoneEgressProxy *ZoneEgressProxy
 	// ZoneIngressProxy is available only when XDS is generated for ZoneIngress data plane proxy.
-	ZoneIngressProxy *ZoneIngressProxy
+	ZoneIngressProxy *ZoneIngressProxy `json:",omitempty"`
 }
 
 type ZoneEgressProxy struct {
-	Meshes             []*core_mesh.MeshResource
-	ExternalServices   []*core_mesh.ExternalServiceResource
+	// TrafficRoutes      []*core_mesh.TrafficRouteResource
+	// GatewayRoutes      []*core_mesh.GatewayRouteResource
+	MeshRoutingMap     MeshRoutingMap
 	ZoneEgressResource *core_mesh.ZoneEgressResource
+	DataSourceLoader   datasource.Loader
+	ExternalServices   []*core_mesh.ExternalServiceResource
+	MeshMap            map[string]*core_mesh.MeshResource
+	DestinationMap     DestinationMap
+	MeshEndpointMap    map[string]EndpointMap
+	TLSReadinessMap    map[string]map[string]bool
 }
 
 type ZoneIngressProxy struct {
@@ -156,9 +166,27 @@ type VIPDomains struct {
 }
 
 type Routing struct {
-	TrafficRoutes   RouteMap
-	OutboundTargets EndpointMap
+	TrafficRoutes   RouteMap    `json:",omitempty"`
+	OutboundTargets EndpointMap `json:",omitempty"`
 }
+
+type DataplaneRouting struct {
+	IsIPV6          bool
+	RouteMap        RouteMap
+	EndpointMap     EndpointMap
+	DestinationMap  DestinationMap
+	MatchedPolicies *MatchedPolicies
+	GatewayRoutes   []*core_mesh.GatewayRouteResource
+}
+
+type DataplaneRoutingMap map[string]*DataplaneRouting
+
+type MeshRouting struct {
+	DataplaneRoutingMap DataplaneRoutingMap
+	MeshResource        *core_mesh.MeshResource
+}
+
+type MeshRoutingMap map[string]*MeshRouting
 
 type CaSecret struct {
 	PemCerts [][]byte

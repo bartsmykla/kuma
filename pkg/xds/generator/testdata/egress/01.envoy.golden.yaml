@@ -1,0 +1,173 @@
+resources:
+- name: externalservice-1
+  resource:
+    '@type': type.googleapis.com/envoy.config.cluster.v3.Cluster
+    connectTimeout: 10s
+    dnsLookupFamily: V4_ONLY
+    loadAssignment:
+      clusterName: externalservice-1
+      endpoints:
+      - lbEndpoints:
+        - endpoint:
+            address:
+              socketAddress:
+                address: konghq.com
+                portValue: 80
+          loadBalancingWeight: 1
+    name: externalservice-1
+    type: STRICT_DNS
+- name: externalservice-2
+  resource:
+    '@type': type.googleapis.com/envoy.config.cluster.v3.Cluster
+    connectTimeout: 10s
+    dnsLookupFamily: V4_ONLY
+    loadAssignment:
+      clusterName: externalservice-2
+      endpoints:
+      - lbEndpoints:
+        - endpoint:
+            address:
+              socketAddress:
+                address: kuma.io
+                portValue: 443
+          loadBalancingWeight: 1
+    name: externalservice-2
+    type: STRICT_DNS
+- name: some-other-service
+  resource:
+    '@type': type.googleapis.com/envoy.config.cluster.v3.Cluster
+    connectTimeout: 10s
+    loadAssignment:
+      clusterName: some-other-service
+      endpoints:
+      - lbEndpoints:
+        - endpoint:
+            address:
+              socketAddress:
+                address: 10.0.0.254
+                portValue: 10001
+          loadBalancingWeight: 1
+        - endpoint:
+            address:
+              socketAddress:
+                address: 10.0.254.254
+                portValue: 10001
+          loadBalancingWeight: 3
+    name: some-other-service
+    type: STATIC
+- name: inbound:10.0.0.1:10002
+  resource:
+    '@type': type.googleapis.com/envoy.config.listener.v3.Listener
+    address:
+      socketAddress:
+        address: 10.0.0.1
+        portValue: 10002
+    filterChains:
+    - filterChainMatch:
+        serverNames:
+        - externalservice-1{mesh=mesh-1}
+        transportProtocol: tls
+      filters:
+      - name: envoy.filters.network.tcp_proxy
+        typedConfig:
+          '@type': type.googleapis.com/envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy
+          cluster: externalservice-1
+          metadataMatch:
+            filterMetadata:
+              envoy.lb:
+                mesh: mesh-1
+          statPrefix: mesh-1
+      transportSocket:
+        name: envoy.transport_sockets.tls
+        typedConfig:
+          '@type': type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.DownstreamTlsContext
+          commonTlsContext:
+            combinedValidationContext:
+              defaultValidationContext:
+                matchSubjectAltNames:
+                - prefix: spiffe://mesh-1/
+              validationContextSdsSecretConfig:
+                name: mesh_ca:secret:mesh-1
+                sdsConfig:
+                  ads: {}
+                  resourceApiVersion: V3
+            tlsCertificateSdsSecretConfigs:
+            - name: identity_cert:secret:mesh-1
+              sdsConfig:
+                ads: {}
+                resourceApiVersion: V3
+          requireClientCertificate: true
+    - filterChainMatch:
+        serverNames:
+        - externalservice-2{mesh=mesh-1}
+        transportProtocol: tls
+      filters:
+      - name: envoy.filters.network.tcp_proxy
+        typedConfig:
+          '@type': type.googleapis.com/envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy
+          cluster: externalservice-2
+          metadataMatch:
+            filterMetadata:
+              envoy.lb:
+                mesh: mesh-1
+          statPrefix: mesh-1
+      transportSocket:
+        name: envoy.transport_sockets.tls
+        typedConfig:
+          '@type': type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.DownstreamTlsContext
+          commonTlsContext:
+            combinedValidationContext:
+              defaultValidationContext:
+                matchSubjectAltNames:
+                - prefix: spiffe://mesh-1/
+              validationContextSdsSecretConfig:
+                name: mesh_ca:secret:mesh-1
+                sdsConfig:
+                  ads: {}
+                  resourceApiVersion: V3
+            tlsCertificateSdsSecretConfigs:
+            - name: identity_cert:secret:mesh-1
+              sdsConfig:
+                ads: {}
+                resourceApiVersion: V3
+          requireClientCertificate: true
+    - filterChainMatch:
+        serverNames:
+        - some-other-service{mesh=mesh-1}
+        transportProtocol: tls
+      filters:
+      - name: envoy.filters.network.tcp_proxy
+        typedConfig:
+          '@type': type.googleapis.com/envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy
+          cluster: some-other-service
+          metadataMatch:
+            filterMetadata:
+              envoy.lb:
+                mesh: mesh-1
+          statPrefix: mesh-1
+      transportSocket:
+        name: envoy.transport_sockets.tls
+        typedConfig:
+          '@type': type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.DownstreamTlsContext
+          commonTlsContext:
+            combinedValidationContext:
+              defaultValidationContext:
+                matchSubjectAltNames:
+                - prefix: spiffe://mesh-1/
+              validationContextSdsSecretConfig:
+                name: mesh_ca:secret:mesh-1
+                sdsConfig:
+                  ads: {}
+                  resourceApiVersion: V3
+            tlsCertificateSdsSecretConfigs:
+            - name: identity_cert:secret:mesh-1
+              sdsConfig:
+                ads: {}
+                resourceApiVersion: V3
+          requireClientCertificate: true
+    listenerFilters:
+    - name: envoy.filters.listener.tls_inspector
+      typedConfig:
+        '@type': type.googleapis.com/envoy.extensions.filters.listener.tls_inspector.v3.TlsInspector
+    name: inbound:10.0.0.1:10002
+    trafficDirection: INBOUND

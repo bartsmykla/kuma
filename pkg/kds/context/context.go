@@ -100,7 +100,10 @@ func GlobalProvidedFilter(rm manager.ResourceManager, configs map[string]bool) r
 		case system.ConfigType:
 			return configs[resName]
 		case system.GlobalSecretType:
-			return util.ResourceNameHasAtLeastOneOfPrefixes(
+			// We want to filter out signing keys from any other zones
+			isFromLocalZone := clusterID == util.ZoneTag(r)
+
+			return isFromLocalZone && util.ResourceNameHasAtLeastOneOfPrefixes(
 				resName,
 				zoneingress.ZoneIngressSigningKeyPrefix,
 				zone_tokens.SigningKeyPrefix,

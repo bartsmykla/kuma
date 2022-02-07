@@ -272,7 +272,9 @@ func (c *memoryStore) List(_ context.Context, rs model.ResourceList, fs ...store
 		if err := c.unmarshalRecord(records[i], r); err != nil {
 			return err
 		}
-		_ = rs.AddItem(r)
+		if opts.Filter(r) {
+			_ = rs.AddItem(r)
+		}
 	}
 
 	rs.GetPagination().SetTotal(uint32(len(records)))

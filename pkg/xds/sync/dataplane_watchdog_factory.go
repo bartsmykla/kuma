@@ -1,6 +1,7 @@
 package sync
 
 import (
+	"context"
 	"time"
 
 	"github.com/kumahq/kuma/pkg/core"
@@ -30,7 +31,7 @@ func NewDataplaneWatchdogFactory(
 
 func (d *dataplaneWatchdogFactory) New(dpKey model.ResourceKey) util_watchdog.Watchdog {
 	log := xdsServerLog.WithName("dataplane-sync-watchdog").WithValues("dataplaneKey", dpKey)
-	dataplaneWatchdog := NewDataplaneWatchdog(d.deps, dpKey)
+	dataplaneWatchdog := NewDataplaneWatchdog(context.Background(), d.deps, dpKey)
 	return &util_watchdog.SimpleWatchdog{
 		NewTicker: func() *time.Ticker {
 			return time.NewTicker(d.refreshInterval)

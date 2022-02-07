@@ -1,0 +1,275 @@
+type: Mesh
+name: mesh-1
+mtls:
+  enabledBackend: ca-1
+  backends:
+  - name: ca-1
+    type: builtin
+    dpCert:
+      rotation:
+        expiration: 1d
+    conf:
+      caCert:
+        RSAbits: 2048
+        expiration: 10y
+---
+type: Mesh
+name: mesh-without-mtls-1
+mtls: {}
+---
+type: Timeout
+name: timeout-1
+mesh: mesh-1
+sources:
+- match:
+    kuma.io/service: '*'
+destinations:
+- match:
+    kuma.io/service: '*'
+conf:
+  connectTimeout: 10s
+  tcp:
+    idleTimeout: 1h
+  http:
+    requestTimeout: 5s
+    idleTimeout: 1h
+  grpc:
+    streamIdleTimeout: 5m
+    maxStreamDuration: 30m
+---
+type: Dataplane
+name: dataplane-1
+mesh: mesh-1
+networking:
+  address: 127.0.0.1
+  inbound:
+  - port: 1234
+    servicePort: 5678
+    tags:
+      kuma.io/service: dataplane-1
+      kuma.io/zone: zone-1
+      kuma.io/protocol: http
+  outbound:
+  - port: 33033
+    tags:
+      kuma.io/service: externalservice-1
+  - port: 44044
+    tags:
+      kuma.io/service: service-in-zone-2
+  - port: 55055
+    tags:
+      kuma.io/service: externalservice-2
+#---
+#type: Dataplane
+#name: some-other-service
+#mesh: mesh-1
+#networking:
+#  address: 192.168.254.254
+#  inbound:
+#  - port: 8888
+#    servicePort: 8888
+#    tags:
+#      kuma.io/service: some-other-service
+---
+type: Dataplane
+name: some-service-zone-1
+mesh: mesh-1
+networking:
+  address: 127.0.0.1
+  inbound:
+  - port: 1234
+    servicePort: 5678
+    tags:
+      kuma.io/service: some-service
+      kuma.io/zone: zone-1
+      kuma.io/protocol: http
+---
+type: Dataplane
+name: some-service-zone-2
+mesh: mesh-1
+networking:
+  address: 127.0.0.1
+  inbound:
+  - port: 1234
+    servicePort: 5678
+    tags:
+      kuma.io/service: some-service
+      kuma.io/zone: zone-2
+      kuma.io/protocol: http
+      version: "1"
+---
+type: Dataplane
+name: dataplane-4
+mesh: mesh-1
+networking:
+  address: 127.0.0.1
+  inbound:
+  - port: 1234
+    servicePort: 5678
+    tags:
+      kuma.io/service: dataplane-4
+      kuma.io/zone: zone-1
+      kuma.io/protocol: http
+---
+type: Dataplane
+name: dataplane-5
+mesh: mesh-1
+networking:
+  address: 127.0.0.1
+  inbound:
+  - port: 1234
+    servicePort: 5678
+    tags:
+      kuma.io/service: dataplane-5
+---
+type: ExternalService
+name: externalservice-1
+mesh: mesh-1
+tags:
+  kuma.io/service: externalservice-1
+  kuma.io/protocol: http
+networking:
+  address: kuma.io:80
+  tls:
+    enabled: false
+---
+type: ExternalService
+name: externalservice-2
+mesh: mesh-1
+tags:
+  kuma.io/service: externalservice-2
+  kuma.io/protocol: http
+networking:
+  address: kuma.io:81
+  tls:
+    enabled: false
+---
+type: TrafficRoute
+name: trafficroute-0
+mesh: mesh-1
+sources:
+- match:
+    kuma.io/service: "*"
+destinations:
+- match:
+    kuma.io/service: "*"
+conf:
+  loadBalancer:
+    roundRobin: {}
+  destination:
+    kuma.io/service: "*"
+---
+type: TrafficRoute
+name: trafficroute-1
+mesh: mesh-1
+sources:
+- match:
+    kuma.io/service: dataplane-1
+destinations:
+- match:
+    kuma.io/service: externalservice-1
+conf:
+  loadBalancer:
+    roundRobin: {}
+  split:
+  - weight: 1
+    destination:
+      kuma.io/service: dataplane-4
+  - weight: 1
+    destination:
+      kuma.io/service: service-in-zone-2
+  - weight: 1
+    destination:
+      kuma.io/service: externalservice-1
+  - weight: 10
+    destination:
+      kuma.io/service: some-service
+      version: "1"
+  - weight: 10
+    destination:
+      kuma.io/service: some-service
+      version: "2"
+---
+type: TrafficRoute
+name: trafficroute-2
+mesh: mesh-1
+sources:
+- match:
+    kuma.io/service: dataplane-1
+destinations:
+- match:
+    kuma.io/service: service-in-zone-2
+conf:
+  loadBalancer:
+    roundRobin: {}
+  destination:
+    kuma.io/service: service-in-zone-2
+---
+type: TrafficPermission
+name: trafficpermission-1
+mesh: mesh-1
+sources:
+- match:
+    kuma.io/service: '*'
+destinations:
+- match:
+    kuma.io/service: '*'
+---
+type: ZoneIngress
+name: zoneingress-1
+zone: zone-2
+networking:
+  address: 10.0.0.254
+  advertisedAddress: 10.0.0.254
+  port: 10001
+  advertisedPort: 10001
+availableServices:
+- tags:
+    kuma.io/service: service-in-zone-2
+    kuma.io/protocol: http
+  instances: 3
+  mesh: mesh-1
+- tags:
+    kuma.io/service: some-service
+    kuma.io/protocol: http
+  instances: 3
+  mesh: mesh-1
+---
+type: ZoneIngress
+name: zoneingress-2
+zone: zone-3
+networking:
+  address: 10.0.254.254
+  advertisedAddress: 10.0.254.254
+  port: 10001
+  advertisedPort: 10001
+availableServices:
+- tags:
+    kuma.io/service: some-service
+    kuma.io/protocol: http
+  instances: 1
+  mesh: mesh-1
+---
+type: ZoneEgress
+name: zoneegress-1
+zone: zone-1
+networking:
+  address: 10.0.0.1
+  port: 10002
+---
+type: GatewayRoute
+name: gatewayroute-1
+mesh: mesh-1
+selectors:
+- match:
+    kuma.io/service: gateway-default
+conf:
+  http:
+    rules:
+    - matches:
+      - path:
+          match: EXACT
+          value: /
+      backends:
+      - destination:
+          kuma.io/service: externalservice-2

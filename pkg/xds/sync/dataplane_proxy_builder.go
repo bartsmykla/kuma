@@ -1,15 +1,9 @@
 package sync
 
 import (
-	"github.com/pkg/errors"
-
 	"github.com/kumahq/kuma/pkg/core"
 	"github.com/kumahq/kuma/pkg/core/datasource"
-	"github.com/kumahq/kuma/pkg/core/faultinjections"
-	"github.com/kumahq/kuma/pkg/core/logs"
-	manager_dataplane "github.com/kumahq/kuma/pkg/core/managers/apis/dataplane"
 	"github.com/kumahq/kuma/pkg/core/permissions"
-	"github.com/kumahq/kuma/pkg/core/ratelimits"
 	core_mesh "github.com/kumahq/kuma/pkg/core/resources/apis/mesh"
 	core_model "github.com/kumahq/kuma/pkg/core/resources/model"
 	core_store "github.com/kumahq/kuma/pkg/core/resources/store"
@@ -40,7 +34,7 @@ func (p *DataplaneProxyBuilder) Build(key core_model.ResourceKey, meshContext xd
 		return nil, err
 	}
 
-	matchedPolicies, err := p.matchPolicies(meshContext, dp, destinations)
+	matchedPolicies, err := matchPolicies(meshContext, dp, destinations)
 	if err != nil {
 		return nil, err
 	}
@@ -58,33 +52,52 @@ func (p *DataplaneProxyBuilder) Build(key core_model.ResourceKey, meshContext xd
 	return proxy, nil
 }
 
-func (p *DataplaneProxyBuilder) resolveRouting(meshContext xds_context.MeshContext, dataplane *core_mesh.DataplaneResource) (*xds.Routing, xds.DestinationMap, error) {
-	matchedExternalServices, err := permissions.MatchExternalServices(dataplane, meshContext.Resources.ExternalServices(), meshContext.Resources.TrafficPermissions())
+func (p *DataplaneProxyBuilder) resolveRouting(
+	meshContext xds_context.MeshContext,
+	dataplane *core_mesh.DataplaneResource,
+) (*xds.Routing, xds.DestinationMap, error) {
+	resources := meshContext.Resources
+
+	matchedExternalServices, err := permissions.MatchExternalServices(
+		dataplane,
+		resources.ExternalServices().Items,
+		resources.TrafficPermissions(),
+	)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	p.resolveVIPOutbounds(meshContext, dataplane)
 
-	// pick a single the most specific route for each outbound interface
-	routes := xds_topology.BuildRouteMap(dataplane, meshContext.Resources.TrafficRoutes().Items)
+	trafficRoutes := resources.TrafficRoutes().Items
+	dataplanes := resources.Dataplanes().Items
+	zoneIngresses := resources.ZoneIngresses().Items
+	zoneEgresses := resources.ZoneEgresses().Items
+	mesh := meshContext.Resource
 
-	// create creates a map of selectors to match other dataplanes reachable via given routes
-	destinations := xds_topology.BuildDestinationMap(dataplane, routes)
+	// pick a single the most specific route for each outbound interface
+	routeMap := xds_topology.BuildRouteMap(dataplane, trafficRoutes)
+
+	// create a map of selectors to match other dataplanes reachable via given
+	// routes
+	destinations := xds_topology.BuildDestinationMap(dataplane, routeMap)
 
 	// resolve all endpoints that match given selectors
-	outbound := xds_topology.BuildEndpointMap(
-		meshContext.Resource,
+	endpointMap := xds_topology.BuildEndpointMap(
+		mesh,
 		p.Zone,
-		meshContext.Resources.Dataplanes().Items,
-		meshContext.Resources.ZoneIngresses().Items,
-		matchedExternalServices, p.DataSourceLoader,
+		dataplanes,
+		zoneIngresses,
+		zoneEgresses,
+		matchedExternalServices,
+		p.DataSourceLoader,
 	)
 
 	routing := &xds.Routing{
-		TrafficRoutes:   routes,
-		OutboundTargets: outbound,
+		TrafficRoutes:   routeMap,
+		OutboundTargets: endpointMap,
 	}
+
 	return routing, destinations, nil
 }
 
@@ -105,28 +118,4 @@ func (p *DataplaneProxyBuilder) resolveVIPOutbounds(meshContext xds_context.Mesh
 		outbounds = append(outbounds, outbound)
 	}
 	dataplane.Spec.Networking.Outbound = outbounds
-}
-
-func (p *DataplaneProxyBuilder) matchPolicies(meshContext xds_context.MeshContext, dataplane *core_mesh.DataplaneResource, outboundSelectors xds.DestinationMap) (*xds.MatchedPolicies, error) {
-	additionalInbounds, err := manager_dataplane.AdditionalInbounds(dataplane, meshContext.Resource)
-	if err != nil {
-		return nil, errors.Wrap(err, "could not fetch additional inbounds")
-	}
-	inbounds := append(dataplane.Spec.GetNetworking().GetInbound(), additionalInbounds...)
-
-	resources := meshContext.Resources
-	ratelimits := ratelimits.BuildRateLimitMap(dataplane, inbounds, resources.RateLimits().Items)
-	matchedPolicies := &xds.MatchedPolicies{
-		TrafficPermissions: permissions.BuildTrafficPermissionMap(dataplane, inbounds, resources.TrafficPermissions().Items),
-		TrafficLogs:        logs.BuildTrafficLogMap(dataplane, resources.TrafficLogs().Items),
-		HealthChecks:       xds_topology.BuildHealthCheckMap(dataplane, outboundSelectors, resources.HealthChecks().Items),
-		CircuitBreakers:    xds_topology.BuildCircuitBreakerMap(dataplane, outboundSelectors, resources.CircuitBreakers().Items),
-		TrafficTrace:       xds_topology.SelectTrafficTrace(dataplane, resources.TrafficTraces().Items),
-		FaultInjections:    faultinjections.BuildFaultInjectionMap(dataplane, inbounds, resources.FaultInjections().Items),
-		Retries:            xds_topology.BuildRetryMap(dataplane, resources.Retries().Items, outboundSelectors),
-		Timeouts:           xds_topology.BuildTimeoutMap(dataplane, resources.Timeouts().Items),
-		RateLimitsInbound:  ratelimits.Inbound,
-		RateLimitsOutbound: ratelimits.Outbound,
-	}
-	return matchedPolicies, nil
 }

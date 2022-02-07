@@ -91,6 +91,14 @@ func NewDefaultProxyProfile() ResourceGenerator {
 	}
 }
 
+func NewEgressProxyProfile() ResourceGenerator {
+	return CompositeResourceGenerator{
+		AdminProxyGenerator{},
+		EgressGenerator{},
+		SecretsProxyGenerator{},
+	}
+}
+
 // DefaultTemplateResolver is the default template resolver that xDS
 // generators fall back to if they are otherwise unable to determine which
 // ProxyTemplate resource to apply. Plugins may modify this variable.
@@ -107,7 +115,7 @@ var predefinedProfiles = make(map[string]ResourceGenerator)
 func init() {
 	RegisterProfile(core_mesh.ProfileDefaultProxy, NewDefaultProxyProfile())
 	RegisterProfile(IngressProxy, CompositeResourceGenerator{AdminProxyGenerator{}, IngressGenerator{}})
-	RegisterProfile(EgressProxy, CompositeResourceGenerator{AdminProxyGenerator{}, EgressGenerator{}})
+	RegisterProfile(EgressProxy, NewEgressProxyProfile())
 }
 
 func RegisterProfile(profileName string, generator ResourceGenerator) {

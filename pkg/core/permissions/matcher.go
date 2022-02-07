@@ -52,13 +52,13 @@ func BuildTrafficPermissionMap(
 
 func MatchExternalServices(
 	dataplane *core_mesh.DataplaneResource,
-	externalServices *core_mesh.ExternalServiceResourceList,
+	externalServices []*core_mesh.ExternalServiceResource,
 	permissions *core_mesh.TrafficPermissionResourceList,
 ) ([]*core_mesh.ExternalServiceResource, error) {
 	var matchedExternalServices []*core_mesh.ExternalServiceResource
 
 	externalServicePermissions := BuildExternalServicesPermissionsMap(externalServices, permissions.Items)
-	for _, externalService := range externalServices.Items {
+	for _, externalService := range externalServices {
 		permission := externalServicePermissions[externalService.GetMeta().GetName()]
 		if permission == nil {
 			continue
@@ -78,14 +78,17 @@ func MatchExternalServices(
 
 type ExternalServicePermissions map[string]*core_mesh.TrafficPermissionResource
 
-func BuildExternalServicesPermissionsMap(externalServices *core_mesh.ExternalServiceResourceList, trafficPermissions []*core_mesh.TrafficPermissionResource) ExternalServicePermissions {
+func BuildExternalServicesPermissionsMap(
+	externalServices []*core_mesh.ExternalServiceResource,
+	trafficPermissions []*core_mesh.TrafficPermissionResource,
+) ExternalServicePermissions {
 	policies := make([]policy.ConnectionPolicy, len(trafficPermissions))
 	for i, permission := range trafficPermissions {
 		policies[i] = permission
 	}
 
 	result := ExternalServicePermissions{}
-	for _, externalService := range externalServices.Items {
+	for _, externalService := range externalServices {
 		matchedPolicy := policy.SelectInboundConnectionPolicy(externalService.Spec.Tags, policies)
 		if matchedPolicy != nil {
 			result[externalService.GetMeta().GetName()] = matchedPolicy.(*core_mesh.TrafficPermissionResource)

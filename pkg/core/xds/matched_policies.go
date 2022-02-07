@@ -11,23 +11,23 @@ import (
 
 type MatchedPolicies struct {
 	// Inbound(Listener) -> Policy
-	TrafficPermissions TrafficPermissionMap
-	FaultInjections    FaultInjectionMap
-	RateLimitsInbound  InboundRateLimitsMap
+	TrafficPermissions TrafficPermissionMap `json:",omitempty"`
+	FaultInjections    FaultInjectionMap    `json:",omitempty"`
+	RateLimitsInbound  InboundRateLimitsMap `json:",omitempty"`
 
 	// Service(Cluster) -> Policy
-	TrafficLogs     TrafficLogMap
-	HealthChecks    HealthCheckMap
-	CircuitBreakers CircuitBreakerMap
-	Retries         RetryMap
+	TrafficLogs     TrafficLogMap     `json:",omitempty"`
+	HealthChecks    HealthCheckMap    `json:",omitempty"`
+	CircuitBreakers CircuitBreakerMap `json:",omitempty"`
+	Retries         RetryMap          `json:",omitempty"`
 
 	// Outbound(Listener) -> Policy
-	Timeouts           TimeoutMap
-	RateLimitsOutbound OutboundRateLimitsMap
-	TrafficRoutes      RouteMap
+	Timeouts           TimeoutMap            `json:",omitempty"`
+	RateLimitsOutbound OutboundRateLimitsMap `json:",omitempty"`
+	TrafficRoutes      RouteMap              `json:",omitempty"`
 
 	// Dataplane -> Policy
-	TrafficTrace *core_mesh.TrafficTraceResource
+	TrafficTrace *core_mesh.TrafficTraceResource `json:",omitempty"`
 }
 
 type AttachmentType int64

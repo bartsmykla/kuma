@@ -136,7 +136,7 @@ func (c *ClusterGenerator) generateExternalCluster(
 	var endpoints []core_xds.Endpoint
 
 	for _, ext := range service.Items {
-		ep, err := topology.NewExternalServiceEndpoint(ext, ctx.Mesh.Resource, c.DataSourceLoader, c.Zone)
+		ep, err := topology.NewExternalServiceEndpoint(context.Background(), ext, ctx.Mesh.Resource, c.DataSourceLoader, c.Zone)
 		if err != nil {
 			return nil, err
 		}

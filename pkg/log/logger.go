@@ -7,6 +7,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/go-logr/zapr"
 	"github.com/pkg/errors"
+	"github.com/streamingfast/logging"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/natefinch/lumberjack.v2"
@@ -79,9 +80,10 @@ func newZapLoggerTo(destWriter io.Writer, level LogLevel, opts ...zap.Option) *z
 		lvl = zap.NewAtomicLevelAt(zap.InfoLevel)
 	}
 	encCfg := zap.NewDevelopmentEncoderConfig()
-	enc := zapcore.NewConsoleEncoder(encCfg)
+	enc := zapcore.NewJSONEncoder(encCfg)
+	enc = logging.NewEncoder(4, true)
 	sink := zapcore.AddSync(destWriter)
-	opts = append(opts, zap.AddCallerSkip(1), zap.ErrorOutput(sink))
+	opts = append(opts, zap.AddCaller(), zap.AddCallerSkip(1), zap.ErrorOutput(sink))
 	return zap.New(zapcore.NewCore(&kube_log_zap.KubeAwareEncoder{Encoder: enc, Verbose: level == DebugLevel}, sink, lvl)).
 		WithOptions(opts...)
 }

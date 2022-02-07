@@ -27,6 +27,8 @@ type DataplaneWatchdogDependencies struct {
 }
 
 type DataplaneWatchdog struct {
+	ctx context.Context
+
 	DataplaneWatchdogDependencies
 	key core_model.ResourceKey
 	log logr.Logger
@@ -37,8 +39,13 @@ type DataplaneWatchdog struct {
 	proxyTypeSettled bool
 }
 
-func NewDataplaneWatchdog(deps DataplaneWatchdogDependencies, dpKey core_model.ResourceKey) *DataplaneWatchdog {
+func NewDataplaneWatchdog(
+	ctx context.Context,
+	deps DataplaneWatchdogDependencies,
+	dpKey core_model.ResourceKey,
+) *DataplaneWatchdog {
 	return &DataplaneWatchdog{
+		ctx:                           ctx,
 		DataplaneWatchdogDependencies: deps,
 		key:                           dpKey,
 		log:                           core.Log.WithValues("key", dpKey),
@@ -86,7 +93,7 @@ func (d *DataplaneWatchdog) Cleanup() error {
 // syncDataplane syncs state of the Dataplane.
 // It uses Mesh Hash to decide if we need to regenerate configuration or not.
 func (d *DataplaneWatchdog) syncDataplane() error {
-	meshCtx, err := d.meshCache.GetMeshContext(context.Background(), syncLog, d.key.Mesh)
+	meshCtx, err := d.meshCache.GetMeshContext(d.ctx, syncLog, d.key.Mesh)
 	if err != nil {
 		return err
 	}
@@ -135,14 +142,15 @@ func (d *DataplaneWatchdog) syncIngress() error {
 	return d.ingressReconciler.Reconcile(*envoyCtx, proxy)
 }
 
-// syncEgress syncs state of Egress Dataplane. Notice that it does not use Mesh Hash yet because Egress supports many Meshes.
+// syncEgress syncs state of Egress Dataplane. Notice that it does not use
+// Mesh Hash yet because Egress supports many Meshes.
 func (d *DataplaneWatchdog) syncEgress() error {
 	envoyCtx := &xds_context.Context{
 		ControlPlane: d.envoyCpCtx,
 		Mesh:         xds_context.MeshContext{}, // ZoneEgress does not need MeshContext
 	}
 
-	proxy, err := d.egressProxyBuilder.build(d.key)
+	proxy, err := d.egressProxyBuilder.Build(d.key)
 	if err != nil {
 		return err
 	}

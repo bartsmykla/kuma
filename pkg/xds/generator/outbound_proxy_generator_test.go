@@ -10,6 +10,7 @@ import (
 
 	mesh_proto "github.com/kumahq/kuma/api/mesh/v1alpha1"
 	core_mesh "github.com/kumahq/kuma/pkg/core/resources/apis/mesh"
+	core_model "github.com/kumahq/kuma/pkg/core/resources/model"
 	model "github.com/kumahq/kuma/pkg/core/xds"
 	core_metrics "github.com/kumahq/kuma/pkg/metrics"
 	. "github.com/kumahq/kuma/pkg/test/matchers"
@@ -22,7 +23,7 @@ import (
 	"github.com/kumahq/kuma/pkg/xds/generator"
 )
 
-var _ = Describe("OutboundProxyGenerator", func() {
+var _ = FDescribe("OutboundProxyGenerator", func() {
 
 	meta := &test_model.ResourceMeta{
 		Name: "mesh1",
@@ -80,10 +81,85 @@ var _ = Describe("OutboundProxyGenerator", func() {
 		},
 	}
 
+	zoneEgressResource := &core_mesh.ZoneEgressResource{
+		Meta: &test_model.ResourceMeta{
+			Name: "zone-egress-1",
+		},
+		Spec: &mesh_proto.ZoneEgress{
+			Zone: "zone-1",
+			Networking: &mesh_proto.ZoneEgress_Networking{
+				Address: "192.168.1.1",
+				Port:    10002,
+				Admin: &mesh_proto.EnvoyAdmin{
+					Port: 19901,
+				},
+			},
+		},
+	}
+
+	fooMesh := &core_mesh.MeshResource{
+		Meta: &test_model.ResourceMeta{
+			Name: "mesh1",
+		},
+		Spec: &mesh_proto.Mesh{
+			Mtls: &mesh_proto.Mesh_Mtls{
+				EnabledBackend: "builtin",
+				Backends: []*mesh_proto.CertificateAuthorityBackend{
+					{
+						Name: "builtin",
+						Type: "builtin",
+					},
+				},
+			},
+		},
+	}
+
+	// es1 := &core_mesh.ExternalServiceResource{
+	// 	Meta: &test_model.ResourceMeta{
+	// 		Name: "external-service-1",
+	// 		Mesh: fooMesh.GetMeta().GetName(),
+	// 	},
+	// 	Spec: &mesh_proto.ExternalService{
+	// 		Networking: &mesh_proto.ExternalService_Networking{
+	// 			Address: "10.0.0.1:10001",
+	// 			Tls: &mesh_proto.ExternalService_Networking_TLS{
+	// 				Enabled: false,
+	// 			},
+	// 		},
+	// 		Tags: map[string]string{
+	// 			"kuma.io/service":  "es",
+	// 			"kuma.io/protocol": "http2",
+	// 		},
+	// 	},
+	// }
+
+	// zoneEgressProxy := &model.ZoneEgressProxy{
+	// 	Meshes:             []*core_mesh.MeshResource{fooMesh},
+	// 	ExternalServices:   []*core_mesh.ExternalServiceResource{es1},
+	// 	ZoneEgressResource: zoneEgressResource,
+	// }
+
+	egressCtx := xds_context.Context{
+		ControlPlane: &xds_context.ControlPlaneContext{
+			Secrets: &xds.TestSecrets{},
+		},
+		Mesh: xds_context.MeshContext{
+			Resource: fooMesh,
+			Resources: map[core_model.ResourceType]core_model.ResourceList{
+				core_mesh.ZoneEgressType: &core_mesh.ZoneEgressResourceList{
+					Items: []*core_mesh.ZoneEgressResource{
+						zoneEgressResource,
+					},
+				},
+			},
+		},
+	}
+
 	type testCase struct {
-		ctx       xds_context.Context
-		dataplane string
-		expected  string
+		ctx        xds_context.Context
+		dataplane  string
+		zoneEgress *model.ZoneEgressProxy
+		expected   string
 	}
 
 	DescribeTable("Generate Envoy xDS resources",
@@ -195,7 +271,8 @@ var _ = Describe("OutboundProxyGenerator", func() {
 					},
 					Spec: dataplane,
 				},
-				APIVersion: envoy_common.APIV3,
+				ZoneEgressProxy: given.zoneEgress,
+				APIVersion:      envoy_common.APIV3,
 				Routing: model.Routing{
 					TrafficRoutes: model.RouteMap{
 						mesh_proto.OutboundInterface{
@@ -487,6 +564,125 @@ var _ = Describe("OutboundProxyGenerator", func() {
 			expected: "06.envoy.golden.yaml",
 		}),
 		Entry("07. no TrafficRoute", testCase{
+			ctx: mtlsCtx,
+			dataplane: `
+            networking:
+              address: 10.0.0.1
+              inbound:
+              - port: 8080
+                tags:
+                  kuma.io/service: web
+              outbound:
+              - port: 4040
+                tags:
+                  kuma.io/service: service-without-traffic-route
+`,
+			expected: "07.envoy.golden.yaml",
+		}),
+		Entry("08. transparent_proxying=false, mtls=false, outbound=0, egress=true", testCase{
+			ctx:       plainCtx,
+			dataplane: ``,
+			// zoneEgress: zoneEgressProxy,
+			expected: "01.envoy.egress.golden.yaml",
+		}),
+		Entry("09. transparent_proxying=true, mtls=false, outbound=0", testCase{
+			ctx: mtlsCtx,
+			dataplane: `
+            networking:
+              transparentProxying:
+                redirectPort: 15001
+`,
+			// zoneEgress: zoneEgressProxy,
+			expected: "02.envoy.egress.golden.yaml",
+		}),
+		Entry("10. transparent_proxying=false, mtls=false, outbound=4", testCase{
+			ctx: plainCtx,
+			dataplane: `
+            networking:
+              address: 10.0.0.1
+              gateway:
+                tags:
+                  kuma.io/service: gateway
+              outbound:
+              - port: 18080
+                service: backend
+              - port: 54321
+                service: db
+              - port: 40001
+                service: api-http
+              - port: 40002
+                service: api-tcp
+              - port: 40003
+                service: api-http2
+              - port: 40004
+                service: api-grpc
+`,
+			// zoneEgress: zoneEgressProxy,
+			expected: "03.envoy.egress.golden.yaml",
+		}),
+		Entry("11. transparent_proxying=true, mtls=true, outbound=4", testCase{
+			ctx: mtlsCtx,
+			dataplane: `
+            networking:
+              address: 10.0.0.1
+              inbound:
+              - port: 8080
+                tags:
+                  kuma.io/service: web
+              outbound:
+              - port: 18080
+                service: backend
+              - port: 54321
+                service: db
+              - port: 40001
+                service: api-http
+              - port: 40002
+                service: api-tcp
+              transparentProxying:
+                redirectPortOutbound: 15001
+                redirectPortInbound: 15006
+`,
+			expected: "04.envoy.egress.golden.yaml",
+		}),
+		Entry("12. transparent_proxying=true, mtls=true, outbound=1 with ExternalService", testCase{
+			ctx: egressCtx,
+			dataplane: `
+            networking:
+              address: 10.0.0.1
+              inbound:
+              - port: 8080
+                tags:
+                  kuma.io/service: web
+              outbound:
+              - port: 18081
+                tags:
+                  kuma.io/service: es
+              transparentProxying:
+                redirectPortOutbound: 15001
+                redirectPortInbound: 15006
+`,
+			expected: "05.envoy.egress.golden.yaml",
+		}),
+		Entry("13. transparent_proxying=true, mtls=true, outbound=1 with ExternalService http2", testCase{
+			ctx: egressCtx,
+			dataplane: `
+            networking:
+              address: 10.0.0.1
+              inbound:
+              - port: 8080
+                tags:
+                  kuma.io/service: web
+              outbound:
+              - port: 18082
+                tags:
+                  kuma.io/service: es2
+              transparentProxying:
+                redirectPortOutbound: 15001
+                redirectPortInbound: 15006
+`,
+			expected: "06.envoy.egress.golden.yaml",
+		}),
+		Entry("14. no TrafficRoute", testCase{
 			ctx: mtlsCtx,
 			dataplane: `
             networking:
