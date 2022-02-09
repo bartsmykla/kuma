@@ -9,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 
 	mesh_proto "github.com/kumahq/kuma/api/mesh/v1alpha1"
+	"github.com/kumahq/kuma/pkg/core/datasource"
 	core_mesh "github.com/kumahq/kuma/pkg/core/resources/apis/mesh"
 	core_model "github.com/kumahq/kuma/pkg/core/resources/model"
 	envoy_common "github.com/kumahq/kuma/pkg/xds/envoy"
@@ -122,6 +123,8 @@ const (
 	SocketAddressProtocolUDP SocketAddressProtocol = 1
 )
 
+// TODO (bartsmykla): remove `json:",omitempty"`
+
 // Proxy contains required data for generating XDS config that is specific to a data plane proxy.
 // The data that is specific for the whole mesh should go into MeshContext.
 type Proxy struct {
@@ -140,9 +143,21 @@ type Proxy struct {
 }
 
 type ZoneEgressProxy struct {
-	Meshes             []*core_mesh.MeshResource
-	ExternalServices   []*core_mesh.ExternalServiceResource
+	// TrafficRoutes      []*core_mesh.TrafficRouteResource
+	// GatewayRoutes      []*core_mesh.GatewayRouteResource
+	Zone               string
+	MeshRoutingMap     MeshRoutingMap
 	ZoneEgressResource *core_mesh.ZoneEgressResource
+	DataSourceLoader   datasource.Loader
+	ExternalServiceMap map[string][]*core_mesh.ExternalServiceResource
+	MeshMap            map[string]*core_mesh.MeshResource
+	DestinationMap     map[string]DestinationMap
+	MeshEndpointMap    map[string]EndpointMap
+	TLSReadinessMap    map[string]map[string]bool
+	Meshes             []*core_mesh.MeshResource
+	MeshHashes         map[string]string
+	TrafficRouteMap    map[string][]*core_mesh.TrafficRouteResource
+	ZoneIngresses      []*core_mesh.ZoneIngressResource
 }
 
 type ZoneIngressProxy struct {
@@ -159,6 +174,24 @@ type Routing struct {
 	TrafficRoutes   RouteMap
 	OutboundTargets EndpointMap
 }
+
+type DataplaneRouting struct {
+	IsIPV6          bool
+	RouteMap        RouteMap
+	EndpointMap     EndpointMap
+	DestinationMap  DestinationMap
+	MatchedPolicies *MatchedPolicies
+	GatewayRoutes   []*core_mesh.GatewayRouteResource
+}
+
+type DataplaneRoutingMap map[string]*DataplaneRouting
+
+type MeshRouting struct {
+	DataplaneRoutingMap DataplaneRoutingMap
+	MeshResource        *core_mesh.MeshResource
+}
+
+type MeshRoutingMap map[string]*MeshRouting
 
 type CaSecret struct {
 	PemCerts [][]byte
