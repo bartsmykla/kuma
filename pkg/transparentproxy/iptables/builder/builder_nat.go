@@ -224,6 +224,7 @@ func addOutputRules(
 			rulePosition,
 			protocol,
 			Match(Owner(UidRangeOrValue(uIDsToPorts))),
+			Match(Multiport()),
 			Jump(Return()),
 		)
 		rulePosition++
