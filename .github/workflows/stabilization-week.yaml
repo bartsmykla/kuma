@@ -1,0 +1,75 @@
+name: "Stabilization Week"
+
+on:
+  push:
+    branches:
+      - release-[0-9]+.[0-9]+
+
+  workflow_dispatch:
+    inputs:
+      branch_name:
+        description: "Release branch name (i.e. release-2.5)"
+        required: true
+        type: string
+
+jobs:
+  debug-github:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v6
+        with:
+          script: |
+            console.log(JSON.stringify(github, null, "  "));
+
+  debug-context:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v6
+        with:
+          script: |
+            console.log(JSON.stringify(context, null, "  "));
+
+  release-branch:
+    runs-on: ubuntu-latest
+    outputs:
+      name: ${{ steps.created.outputs.name || steps.workflow_dispatch.outputs.name }}
+    steps:
+      - name: "Set release branch name output for workflow_dispatch"
+        if: github.event_name == 'workflow_dispatch'
+        id: workflow_dispatch
+        env:
+          BRANCH_NAME: ${{ github.event.inputs.branch_name }}
+        run: |
+          if ! grep --silent --perl-regexp '^release-[0-9]+.[0-9]+$' <<< ${BRANCH_NAME}; then
+            error="Provided release branch name (${BRANCH_NAME}) is invalid (must be in format: '^release-[0-9]+.[0-9]+$')"
+            echo "::error::${error}"
+            exit 1
+          fi
+          
+          echo "name=${{ github.event.inputs.branch_name }}" >> "$GITHUB_OUTPUT"
+      - name: "Set release branch name output for create branch"
+        if: github.event.created
+        id: created
+        run: |
+          BRANCH_NAME=$(grep --only-matching --perl-regexp 'release-[0-9]+.[0-9]+$' <<< ${{ github.event.ref }})
+
+          echo "name=${BRANCH_NAME}" >> "$GITHUB_OUTPUT"
+
+  test:
+    runs-on: ubuntu-latest
+    needs:
+      - release-branch
+    steps:
+      - env:
+          NAME: ${{ needs.release-branch.outputs.name }}
+        run: |
+          echo needs.release-branch.outputs.name=${{needs.release-branch.outputs.name}}
+          echo NAME=${NAME}
+#
+#  check-if-latest:
+#    name: "Check if the new release branch relates to the latest version"
+#    if: github.event.created || github.event.workflow_dispatch
+#  start:
+#    name: "Start stabilization week"
+#    if: github.event.created
+
