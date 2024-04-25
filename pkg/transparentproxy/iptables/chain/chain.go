@@ -1,6 +1,10 @@
 package chain
 
 import (
+	"fmt"
+	"os"
+	"strings"
+
 	"github.com/kumahq/kuma/pkg/transparentproxy/iptables/commands"
 	. "github.com/kumahq/kuma/pkg/transparentproxy/iptables/parameters"
 )
@@ -38,7 +42,19 @@ func (b *Chain) Build(verbose bool) []string {
 	var cmds []string
 
 	for _, cmd := range b.commands {
-		cmds = append(cmds, cmd.Build(verbose))
+		fmt.Fprintln(os.Stderr, cmd.Build(verbose))
+
+		cmds = append(cmds, strings.Join(cmd.Build(verbose), " "))
+	}
+
+	return cmds
+}
+
+func (b *Chain) Check(verbose bool) [][]string {
+	var cmds [][]string
+
+	for _, cmd := range b.commands {
+		cmds = append(cmds, cmd.Check(verbose))
 	}
 
 	return cmds

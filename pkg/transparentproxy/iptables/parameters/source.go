@@ -4,8 +4,8 @@ type SourceParameter struct {
 	address string
 }
 
-func (p *SourceParameter) Build(bool) string {
-	return p.address
+func (p *SourceParameter) Build(bool) []string {
+	return []string{p.address}
 }
 
 func (p *SourceParameter) Negate() ParameterBuilder {

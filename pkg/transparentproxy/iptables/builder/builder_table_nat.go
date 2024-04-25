@@ -1,9 +1,14 @@
 package builder
 
 import (
+	"bytes"
+	"context"
 	"fmt"
 	"net"
+	"os/exec"
 	"strings"
+
+	"github.com/pkg/errors"
 
 	"github.com/kumahq/kuma/pkg/transparentproxy/config"
 	. "github.com/kumahq/kuma/pkg/transparentproxy/iptables/chain"
@@ -362,4 +367,33 @@ func buildNatTable(
 		WithChain(meshOutbound).
 		WithChain(meshInboundRedirect).
 		WithChain(meshOutboundRedirect), nil
+}
+
+func debugPrintTable(cfg config.Config, c *Chain) {
+	for _, iptablesCmd := range []string{"iptables-nft"} {
+		for _, checkCommandArgs := range c.Check(cfg.Verbose) {
+			// parameters := command.GetParameters()
+			// parametersString := strings.Join(parameters.Build(cfg.Verbose), " ")
+
+			var stdout bytes.Buffer
+			var stderr bytes.Buffer
+			// #nosec G204
+			cmd := exec.CommandContext(context.Background(), iptablesCmd, checkCommandArgs...)
+			cmd.Stdout = &stdout
+			cmd.Stderr = &stderr
+
+			fmt.Fprintln(cfg.RuntimeStderr, iptablesCmd, strings.Join(checkCommandArgs, " "))
+
+			if err := cmd.Run(); err != nil {
+				if stderr.Len() > 0 {
+					fmt.Fprintln(cfg.RuntimeStderr, "stderr", strings.ReplaceAll(errors.Wrap(err, stderr.String()).Error(), "\n", ""))
+				} else {
+					fmt.Fprintln(cfg.RuntimeStderr, err)
+				}
+			}
+
+			fmt.Fprintln(cfg.RuntimeStderr, stdout.String())
+		}
+
+	}
 }

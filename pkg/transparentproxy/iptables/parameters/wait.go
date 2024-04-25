@@ -8,8 +8,8 @@ type WaitParameter struct {
 	seconds uint
 }
 
-func (p *WaitParameter) Build(bool) string {
-	return strconv.Itoa(int(p.seconds))
+func (p *WaitParameter) Build(bool) []string {
+	return []string{strconv.Itoa(int(p.seconds))}
 }
 
 func (p *WaitParameter) Negate() ParameterBuilder {

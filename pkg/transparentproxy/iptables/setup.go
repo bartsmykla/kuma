@@ -20,7 +20,7 @@ func Setup(ctx context.Context, cfg config.Config) (string, error) {
 			iptablesExecutablePath = executables.Iptables.Path
 		}
 
-		output, err := builder.BuildIPTables(cfg, nil, cfg.IPv6, iptablesExecutablePath)
+		_, output, err := builder.BuildIPTables(cfg, nil, cfg.IPv6, iptablesExecutablePath)
 		if err != nil {
 			return "", err
 		}

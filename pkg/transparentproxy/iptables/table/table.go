@@ -67,3 +67,21 @@ func (b *TableBuilder) Build(verbose bool) string {
 
 	return strings.Join(lines, "\n")
 }
+
+
+func buildCheckCmds(tableName string, chains []*chain.Chain, verbose bool) [][]string {
+	var result [][]string
+
+	flag := "-t"
+	if verbose {
+		flag = "--table"
+	}
+
+	for _, c := range chains {
+		for _, args := range c.Check(verbose) {
+			result = append(result, append([]string{flag, tableName}, args...))
+		}
+	}
+
+	return result
+}

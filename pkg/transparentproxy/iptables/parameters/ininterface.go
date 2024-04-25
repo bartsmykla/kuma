@@ -4,8 +4,8 @@ type InInterfaceParameter struct {
 	name string
 }
 
-func (p *InInterfaceParameter) Build(bool) string {
-	return p.name
+func (p *InInterfaceParameter) Build(bool) []string {
+	return []string{p.name}
 }
 
 func (p *InInterfaceParameter) Negate() ParameterBuilder {

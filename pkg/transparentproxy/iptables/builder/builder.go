@@ -66,29 +66,44 @@ func (t *IPTables) Build(verbose bool) string {
 	return strings.Join(tables, separator) + "\n"
 }
 
+func (t *IPTables) Check(cfg config.Config) [][]string {
+	var result [][]string
+
+	result = append(result, t.nat.Check(cfg.Verbose)...)
+	result = append(result, t.raw.Check(cfg.Verbose)...)
+
+	// for _, chain := range t.nat.Chains() {
+	// 	debugPrintTable(cfg, chain)
+	// }
+
+	return result
+}
+
 func BuildIPTables(
 	cfg config.Config,
 	dnsServers []string,
 	ipv6 bool,
 	iptablesExecutablePath string,
-) (string, error) {
+) (*IPTables, string, error) {
 	cfg = config.MergeConfigWithDefaults(cfg)
 
 	loopbackIface, err := getLoopback()
 	if err != nil {
-		return "", fmt.Errorf("cannot obtain loopback interface: %s", err)
+		return nil, "", fmt.Errorf("cannot obtain loopback interface: %s", err)
 	}
 
 	natTable, err := buildNatTable(cfg, dnsServers, loopbackIface.Name, ipv6)
 	if err != nil {
-		return "", fmt.Errorf("build nat table: %s", err)
+		return nil, "", fmt.Errorf("build nat table: %s", err)
 	}
 
-	return newIPTables(
+	ipTables := newIPTables(
 		buildRawTable(cfg, dnsServers, iptablesExecutablePath),
 		natTable,
 		buildMangleTable(cfg),
-	).Build(cfg.Verbose), nil
+	)
+
+	return ipTables, ipTables.Build(cfg.Verbose), nil
 }
 
 // runtimeOutput is the file (should be os.Stdout by default) where we can dump generated
@@ -149,16 +164,16 @@ func newIPTablesRestorer(
 	}, nil
 }
 
-func (r *restorer) restore(ctx context.Context) (string, error) {
+func (r *restorer) restore(ctx context.Context) (*IPTables, string, error) {
 	rulesFile, err := createRulesFile(r.ipv6)
 	if err != nil {
-		return "", err
+		return nil, "", err
 	}
 	defer rulesFile.Close()
 	defer os.Remove(rulesFile.Name())
 
 	if err := r.configureIPv6Address(); err != nil {
-		return "", err
+		return nil, "", err
 	}
 
 	maxRetries := pointer.Deref(r.cfg.Retry.MaxRetries)
@@ -166,17 +181,17 @@ func (r *restorer) restore(ctx context.Context) (string, error) {
 	for i := 0; i <= maxRetries; i++ {
 		logPrefix := fmt.Sprintf("# [%d/%d]", i+1, maxRetries+1)
 
-		output, err := r.tryRestoreIPTables(ctx, logPrefix, r.executables, rulesFile)
+		ipTables, output, err := r.tryRestoreIPTables(ctx, logPrefix, r.executables, rulesFile)
 		if err == nil {
-			return output, nil
+			return ipTables, output, nil
 		}
 
 		if r.executables.fallback != nil {
 			fmt.Fprintf(r.cfg.RuntimeStdout, "%s trying fallback\n", logPrefix)
 
-			output, err := r.tryRestoreIPTables(ctx, logPrefix, r.executables.fallback, rulesFile)
+			ipTables, output, err := r.tryRestoreIPTables(ctx, logPrefix, r.executables.fallback, rulesFile)
 			if err == nil {
-				return output, nil
+				return ipTables, output, nil
 			}
 		}
 
@@ -192,7 +207,7 @@ func (r *restorer) restore(ctx context.Context) (string, error) {
 		}
 	}
 
-	return "", errors.Errorf("%s failed", r.executables.Restore.Path)
+	return nil, "", errors.Errorf("%s failed", r.executables.Restore.Path)
 }
 
 func (r *restorer) tryRestoreIPTables(
@@ -200,18 +215,18 @@ func (r *restorer) tryRestoreIPTables(
 	logPrefix string,
 	executables *Executables,
 	rulesFile *os.File,
-) (string, error) {
+) (*IPTables, string, error) {
 	if executables.foundDockerOutputChain {
 		r.cfg.Redirect.DNS.UpstreamTargetChain = "DOCKER_OUTPUT"
 	}
 
-	rules, err := BuildIPTables(r.cfg, r.dnsServers, r.ipv6, executables.Iptables.Path)
+	ipTables, rules, err := BuildIPTables(r.cfg, r.dnsServers, r.ipv6, executables.Iptables.Path)
 	if err != nil {
-		return "", fmt.Errorf("unable to build iptable rules: %s", err)
+		return nil, "", fmt.Errorf("unable to build iptable rules: %s", err)
 	}
 
 	if err := r.saveIPTablesRestoreFile(logPrefix, rulesFile, rules); err != nil {
-		return "", fmt.Errorf("unable to save iptables restore file: %s", err)
+		return nil, "", fmt.Errorf("unable to save iptables restore file: %s", err)
 	}
 
 	params := buildRestoreParameters(r.cfg, rulesFile, executables.legacy())
@@ -226,7 +241,7 @@ func (r *restorer) tryRestoreIPTables(
 
 	output, err := executables.Restore.exec(ctx, params...)
 	if err == nil {
-		return output.String(), nil
+		return ipTables, output.String(), nil
 	}
 
 	fmt.Fprintf(
@@ -236,7 +251,7 @@ func (r *restorer) tryRestoreIPTables(
 		strings.ReplaceAll(err.Error(), "\n", ""),
 	)
 
-	return "", err
+	return nil, "", err
 }
 
 func RestoreIPTables(ctx context.Context, cfg config.Config) (string, error) {
@@ -261,9 +276,13 @@ func RestoreIPTables(ctx context.Context, cfg config.Config) (string, error) {
 		return "", err
 	}
 
-	output, err := ipv4Restorer.restore(ctx)
+	ipTables, output, err := ipv4Restorer.restore(ctx)
 	if err != nil {
 		return "", fmt.Errorf("cannot restore ipv4 iptable rules: %s", err)
+	}
+
+	for _, checkCmd := range ipTables.Check(cfg) {
+		fmt.Fprintln(os.Stderr, checkCmd)
 	}
 
 	if cfg.IPv6 {
@@ -272,7 +291,7 @@ func RestoreIPTables(ctx context.Context, cfg config.Config) (string, error) {
 			return "", err
 		}
 
-		ipv6Output, err := ipv6Restorer.restore(ctx)
+		_, ipv6Output, err := ipv6Restorer.restore(ctx)
 		if err != nil {
 			return "", fmt.Errorf("cannot restore ipv6 iptable rules: %s", err)
 		}

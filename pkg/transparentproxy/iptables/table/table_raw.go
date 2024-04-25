@@ -35,3 +35,7 @@ func Raw() *RawTable {
 		output:     chain.NewChain("OUTPUT"),
 	}
 }
+
+func (t *RawTable) Check(verbose bool) [][]string {
+	return buildCheckCmds("raw", []*chain.Chain{t.prerouting, t.output}, verbose)
+}

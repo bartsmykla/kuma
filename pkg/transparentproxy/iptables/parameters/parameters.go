@@ -1,11 +1,11 @@
 package parameters
 
 import (
-	"strings"
+	"fmt"
 )
 
 type ParameterBuilder interface {
-	Build(verbose bool) string
+	Build(verbose bool) []string
 	Negate() ParameterBuilder
 }
 
@@ -34,9 +34,9 @@ type Parameter struct {
 	negative   bool
 }
 
-func (p *Parameter) Build(verbose bool) string {
+func (p *Parameter) Build(verbose bool) []string {
 	if p == nil {
-		return ""
+		return nil
 	}
 
 	flag := p.short
@@ -54,7 +54,7 @@ func (p *Parameter) Build(verbose bool) string {
 	var parameters []string
 	for _, parameter := range p.parameters {
 		if parameter != nil {
-			parameters = append(parameters, parameter.Build(verbose))
+			parameters = append(parameters, parameter.Build(verbose)...)
 		}
 	}
 
@@ -62,12 +62,12 @@ func (p *Parameter) Build(verbose bool) string {
 	// equal sign to be set, so "--wait 5" is invalid and should be "--wait=5"
 	// to work. If the `Parameter` object has a `connector` property and only
 	// one value, we will use it when joining the flag with the value.
-	connector := " "
 	if p.connector != "" && len(parameters) == 1 {
-		connector = p.connector
+		// TODO(bartsmykla): negative
+		return []string{fmt.Sprintf("%s%s%s", flag, p.connector, parameters[0])}
 	}
 
-	return strings.Join(append(result, parameters...), connector)
+	return append(result, parameters...)
 }
 
 func (p *Parameter) Negate() ParameterBuilder {
@@ -90,11 +90,7 @@ func (p *Parameters) Build(verbose bool, additionalParameters ...string) []strin
 	var result []string
 
 	for _, parameter := range *p {
-		builtParameter := parameter.Build(verbose)
-
-		if builtParameter != "" {
-			result = append(result, builtParameter)
-		}
+		result = append(result, parameter.Build(verbose)...)
 	}
 
 	return append(result, additionalParameters...)

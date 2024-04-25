@@ -51,6 +51,17 @@ func (t *NatTable) Build(verbose bool) string {
 	return table.Build(verbose)
 }
 
+func (t *NatTable) Check(verbose bool) [][]string {
+	return buildCheckCmds(
+		"nat",
+		append(
+			[]*chain.Chain{t.prerouting, t.input, t.output, t.postrouting},
+			t.chains...,
+		),
+		verbose,
+	)
+}
+
 func Nat() *NatTable {
 	return &NatTable{
 		prerouting:  chain.NewChain("PREROUTING"),

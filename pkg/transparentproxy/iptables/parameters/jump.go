@@ -2,15 +2,14 @@ package parameters
 
 import (
 	"strconv"
-	"strings"
 )
 
 type JumpParameter struct {
 	parameters []string
 }
 
-func (p *JumpParameter) Build(bool) string {
-	return strings.Join(p.parameters, " ")
+func (p *JumpParameter) Build(bool) []string {
+	return p.parameters
 }
 
 func (p *JumpParameter) Negate() ParameterBuilder {

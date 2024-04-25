@@ -2,7 +2,6 @@ package commands
 
 import (
 	"strconv"
-	"strings"
 
 	"github.com/kumahq/kuma/pkg/transparentproxy/iptables/parameters"
 )
@@ -15,7 +14,7 @@ type Command struct {
 	parameters parameters.Parameters
 }
 
-func (c *Command) Build(verbose bool) string {
+func (c *Command) Build(verbose bool) []string {
 	flag := c.short
 
 	if verbose {
@@ -32,7 +31,23 @@ func (c *Command) Build(verbose bool) string {
 		cmd = append(cmd, strconv.Itoa(c.position))
 	}
 
-	return strings.Join(append(cmd, c.parameters.Build(verbose)...), " ")
+	return append(cmd, c.parameters.Build(verbose)...)
+}
+
+func (c *Command) Check(verbose bool) []string {
+	flag := "-C"
+
+	if verbose {
+		flag = "--check"
+	}
+
+	cmd := []string{flag}
+
+	if c.chainName != "" {
+		cmd = append(cmd, c.chainName)
+	}
+
+	return append(cmd, c.parameters.Build(verbose)...)
 }
 
 func Append(chainName string, parameters []*parameters.Parameter) *Command {

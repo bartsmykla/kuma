@@ -8,8 +8,8 @@ type WaitIntervalParameter struct {
 	microseconds uint
 }
 
-func (p *WaitIntervalParameter) Build(bool) string {
-	return strconv.Itoa(int(p.microseconds))
+func (p *WaitIntervalParameter) Build(bool) []string {
+	return []string{strconv.Itoa(int(p.microseconds))}
 }
 
 func (p *WaitIntervalParameter) Negate() ParameterBuilder {
