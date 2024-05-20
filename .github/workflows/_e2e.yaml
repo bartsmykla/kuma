@@ -43,7 +43,7 @@ jobs:
           echo "run-type=$RUN_TYPE">> $GITHUB_OUTPUT
       - name: "GitHub Actions: check out code"
         if: steps.eval-params.outputs.run-type == 'github'
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
         with:
           fetch-depth: 0
       - name: "GitHub Actions: setup go"
