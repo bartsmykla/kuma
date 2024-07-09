@@ -33,14 +33,11 @@ func (c *Chain) AddRules(rules ...*rules.RuleBuilder) *Chain {
 // `BuildForRestore(verbose)` method to generate the individual command string
 // for each rule. The `verbose` flag is passed along to maintain consistent
 // output formatting throughout the chain.
-func (c *Chain) BuildForRestore(
-	cfg config.InitializedConfig,
-	ipv6 bool,
-) []string {
+func (c *Chain) BuildForRestore(cfg config.InitializedConfigIPvX) []string {
 	var lines []string
 
 	for _, rule := range c.rules {
-		lines = append(lines, rule.BuildForRestore(cfg, ipv6))
+		lines = append(lines, rule.BuildForRestore(cfg))
 	}
 
 	return lines

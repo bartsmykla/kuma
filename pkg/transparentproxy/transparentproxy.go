@@ -9,10 +9,10 @@ import (
 	"strings"
 
 	"github.com/kumahq/kuma/pkg/transparentproxy/config"
-	"github.com/kumahq/kuma/pkg/transparentproxy/ebpf"
 	"github.com/kumahq/kuma/pkg/transparentproxy/iptables"
 )
 
+// TODO(bartsmykla): should be moved to config
 func HasLocalIPv6() (bool, error) {
 	addrs, err := net.InterfaceAddrs()
 	if err != nil {
@@ -30,6 +30,7 @@ func HasLocalIPv6() (bool, error) {
 	return false, nil
 }
 
+// TODO(bartsmykla): should be moved to config
 // ShouldEnableIPv6 checks if system supports IPv6. The port has a value of
 // RedirectPortInBoundV6 and when equals 0 means that IPv6 was disabled by the user.
 func ShouldEnableIPv6(port uint16) (bool, error) {
@@ -52,6 +53,7 @@ func ShouldEnableIPv6(port uint16) (bool, error) {
 	return err == nil, nil
 }
 
+// TODO(bartsmykla): should be moved to config
 func ParseUint16(port string) (uint16, error) {
 	parsedPort, err := strconv.ParseUint(port, 10, 16)
 	if err != nil {
@@ -61,6 +63,7 @@ func ParseUint16(port string) (uint16, error) {
 	return uint16(parsedPort), nil
 }
 
+// TODO(bartsmykla): should be moved to config
 func SplitPorts(ports string) ([]uint16, error) {
 	ports = strings.TrimSpace(ports)
 	if ports == "" {
@@ -82,17 +85,17 @@ func SplitPorts(ports string) ([]uint16, error) {
 }
 
 func Setup(ctx context.Context, cfg config.InitializedConfig) (string, error) {
-	if cfg.Ebpf.Enabled {
-		return ebpf.Setup(cfg)
-	}
+	// if cfg.IPv4.Ebpf.Enabled {
+	// 	return ebpf.Setup(cfg.IPv4)
+	// }
 
 	return iptables.Setup(ctx, cfg)
 }
 
 func Cleanup(cfg config.InitializedConfig) (string, error) {
-	if cfg.Ebpf.Enabled {
-		return ebpf.Cleanup(cfg)
-	}
+	// if cfg.IPv4.Ebpf.Enabled {
+	// 	return ebpf.Cleanup(cfg.IPv4)
+	// }
 
 	return iptables.Cleanup(cfg)
 }

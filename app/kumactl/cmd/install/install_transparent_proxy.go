@@ -229,11 +229,17 @@ runuser -u kuma-dp -- \
 
 	cmd.Flags().BoolVar(&cfg.Log.Enabled, "iptables-logs", cfg.Log.Enabled, "enable logs for iptables rules using the LOG chain. This option activates kernel logging for packets matching the rules, where details about the IP/IPv6 headers are logged. This information can be accessed via dmesg(1) or syslog.")
 
+	// TODO(bartsmykla): Write usage description
+	// TODO(bartsmykla): Think about better flag names maybe?
+	cmd.Flags().BoolVar(&cfg.Comment.Disabled, "iptables-comments-disable", cfg.Comment.Disabled, "")
+	cmd.Flags().StringVar(&cfg.Comment.Prefix, "iptables-comments-prefix", cfg.Comment.Prefix, "")
+
 	_ = cmd.Flags().MarkDeprecated("redirect-dns-upstream-target-chain", "This flag has no effect anymore. Will be removed in 2.9.x version")
 
 	return cmd
 }
 
+// TODO(bartsmykla): move it to transparent-proxy config?
 func findUidGid(uid, user string) (string, string, error) {
 	var u *os_user.User
 	var err error

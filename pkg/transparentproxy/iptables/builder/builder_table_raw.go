@@ -8,24 +8,17 @@ import (
 	"github.com/kumahq/kuma/pkg/transparentproxy/iptables/tables"
 )
 
+// TODO(bartsmykla): We should change this if statement: `if cfg.Redirect.DNS.ConntrackZoneSplit {` to just return if it's false
+
 // buildRawTable constructs the raw table for iptables with the necessary rules
 // for handling DNS traffic and connection tracking zone splitting. This table
 // is configured based on the provided configuration, including handling IPv4
 // and IPv6 DNS servers.
-func buildRawTable(cfg config.InitializedConfig, ipv6 bool) *tables.RawTable {
+func buildRawTable(cfg config.InitializedConfigIPvX) *tables.RawTable {
 	// Initialize the raw table.
 	raw := tables.Raw()
 
-	// Determine DNS servers and connection tracking zone split
-	// based on IP version.
-	dnsServers := cfg.Redirect.DNS.ServersIPv4
-	conntractZoneSplit := cfg.Redirect.DNS.ConntrackZoneSplitIPv4
-	if ipv6 {
-		dnsServers = cfg.Redirect.DNS.ServersIPv6
-		conntractZoneSplit = cfg.Redirect.DNS.ConntrackZoneSplitIPv6
-	}
-
-	if conntractZoneSplit {
+	if cfg.Redirect.DNS.ConntrackZoneSplit {
 		raw.Output().AddRules(
 			rules.
 				NewRule(
@@ -43,7 +36,7 @@ func buildRawTable(cfg config.InitializedConfig, ipv6 bool) *tables.RawTable {
 				WithComment("assign connection tracking zone 2 to DNS responses from the kuma-dp DNS proxy"),
 		)
 
-		if cfg.ShouldCaptureAllDNS() {
+		if cfg.Redirect.DNS.CaptureAll {
 			raw.Output().AddRules(
 				rules.
 					NewRule(
@@ -62,7 +55,7 @@ func buildRawTable(cfg config.InitializedConfig, ipv6 bool) *tables.RawTable {
 					WithComment("assign connection tracking zone 1 to all DNS responses"),
 			)
 		} else {
-			for _, ip := range dnsServers {
+			for _, ip := range cfg.Redirect.DNS.Servers {
 				raw.Output().AddRules(
 					rules.
 						NewRule(
