@@ -44,6 +44,10 @@ func (l Logger) Info(a ...any) {
 	loglnWithHashPrefix(l.stdout, a)
 }
 
+func (l Logger) Infof(format string, a ...any) {
+	l.Info(fmt.Sprintf(format, a...))
+}
+
 // InfoWithoutPrefix logs messages to stdout without any prefix.
 func (l Logger) InfoWithoutPrefix(a ...any) {
 	logln(l.stdout, a)
@@ -68,6 +72,10 @@ func (l Logger) Warnf(format string, a ...any) {
 // Error logs error messages to stderr, prefixed with a hash.
 func (l Logger) Error(a ...any) {
 	loglnWithHashPrefix(l.stderr, a)
+}
+
+func (l Logger) Errorf(format string, a ...any) {
+	l.Error(fmt.Sprintf(format, a...))
 }
 
 // ErrorTry logs error messages with retry context to stderr, transforming

@@ -534,6 +534,8 @@ type InitializedConfigIPvX struct {
 	// the transparent proxy, making them easier to manage and debug.
 	Comment InitializedComment
 
+	IPv6 bool
+
 	enabled bool
 }
 
@@ -627,6 +629,7 @@ func (c Config) Initialize(ctx context.Context) (InitializedConfig, error) {
 			InboundPassthroughCIDR: InboundPassthroughSourceAddressCIDRIPv6,
 			Comment:                c.Comment.Initialize(e.IPv6),
 			DropInvalidPackets:     c.DropInvalidPackets && e.IPv6.Functionality.Tables.Mangle,
+			IPv6:                   true,
 			enabled:                true,
 		}
 
@@ -683,7 +686,7 @@ func DefaultConfig() Config {
 			ProgramsSourcePath: "/tmp/kuma-ebpf",
 		},
 		DropInvalidPackets: false,
-		IPv6:               false,
+		IPv6:               true,
 		RuntimeStdout:      os.Stdout,
 		RuntimeStderr:      os.Stderr,
 		Verbose:            false,
