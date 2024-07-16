@@ -190,29 +190,25 @@ func (d *DataplaneResource) IsUsingTransparentProxy() bool {
 	if d == nil {
 		return false
 	}
-	if d.Spec.GetNetworking() == nil {
-		return false
-	}
 
 	tproxy := d.Spec.GetNetworking().GetTransparentProxying()
-	if tproxy == nil {
+
+	switch {
+	// Check if transparent proxying is enabled by ensuring non-zero redirect ports
+	case tproxy == nil, tproxy.GetRedirectPortInbound() == 0, tproxy.GetRedirectPortOutbound() == 0:
 		return false
+	// For IPv6 dataplanes, ensure IP family mode is not IPv4 only
+	case d.IsIPv6():
+		// Note: The redirect inbound IPv6 port specification was removed after deprecation.
+		// If the dataplane configuration is using an older version of Kuma (where IP family mode
+		// was not specified) but the control plane is using a newer version, IPv6 will be disabled
+		// and the configuration won't be applied. In such cases, the RedirectPortInboundV6 will
+		// be ignored.
+		return tproxy.GetIpFamilyMode() != mesh_proto.Dataplane_Networking_TransparentProxying_IPv4
+	// For non-IPv6 dataplanes, return true if transparent proxying is configured
+	default:
+		return true
 	}
-
-	isUsingTransparentProxy := tproxy.RedirectPortInbound != 0 && tproxy.RedirectPortOutbound != 0
-
-	if d.IsIPv6() {
-		// for data planes created earlier than when `IpFamilyMode` is added,
-		// we use the presence of `RedirectPortInboundV6` to determine
-		if tproxy.GetIpFamilyMode() == mesh_proto.Dataplane_Networking_TransparentProxying_UnSpecified {
-			isUsingTransparentProxy = tproxy.RedirectPortInboundV6 != 0
-		} else {
-			isUsingTransparentProxy = isUsingTransparentProxy &&
-				tproxy.GetIpFamilyMode() != mesh_proto.Dataplane_Networking_TransparentProxying_IPv4
-		}
-	}
-
-	return isUsingTransparentProxy
 }
 
 func (d *DataplaneResource) AdminAddress(defaultAdminPort uint32) string {
