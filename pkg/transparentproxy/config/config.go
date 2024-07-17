@@ -89,6 +89,65 @@ func NewValueOrRangeList[T ~[]uint16 | ~uint16 | ~string](v T) ValueOrRangeList 
 	}
 }
 
+func parsePort(s string) (Port, error) {
+	u, err := parseUint16(s)
+
+	fmt.Fprintln(os.Stderr, "####################### u", u)
+
+	if err != nil || u == 0 {
+		return 0, errors.Errorf("value '%s' is not a valid port (uint16 in the range [1, 65535])", s)
+	}
+
+	return Port(u), nil
+}
+
+type Port uint16
+
+func (p *Port) String() string { return strconv.Itoa(int(*p)) }
+
+func (p *Port) Type() string { return "uint16" }
+
+func (p *Port) Set(s string) error {
+	var err error
+
+	fmt.Fprintln(os.Stderr, "###################### s", s)
+
+	if *p, err = parsePort(s); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+type Ports []Port
+
+func (p *Ports) String() string {
+	var ports []string
+	for _, port := range *p {
+		ports = append(ports, strconv.Itoa(int(port)))
+	}
+	return strings.Join(ports, ",")
+}
+
+func (p *Ports) Type() string { return "uint16[,...]" }
+
+func (p *Ports) Set(s string) error {
+	if s = strings.TrimSpace(s); s == "" {
+		return nil
+	}
+
+	for _, port := range strings.Split(s, ",") {
+		parsedPort, err := parsePort(strings.TrimSpace(port))
+		if err != nil {
+			return err
+		}
+
+		*p = append(*p, parsedPort)
+	}
+
+	return nil
+}
+
 type Exclusion struct {
 	Protocol ProtocolL4
 	Address  string
@@ -99,13 +158,13 @@ type Exclusion struct {
 // TrafficFlow is a struct for Inbound/Outbound configuration
 type TrafficFlow struct {
 	Enabled             bool
-	Port                uint16
+	Port                Port
 	ChainName           string
 	RedirectChainName   string
-	ExcludePorts        []uint16
+	ExcludePorts        Ports
 	ExcludePortsForUIDs []string
 	ExcludePortsForIPs  []string
-	IncludePorts        []uint16
+	IncludePorts        Ports
 }
 
 func (c TrafficFlow) Initialize(
@@ -152,7 +211,7 @@ func (c TrafficFlow) Initialize(
 type InitializedTrafficFlow struct {
 	TrafficFlow
 	Exclusions        []Exclusion
-	Port              uint16
+	Port              Port
 	ChainName         string
 	RedirectChainName string
 }
@@ -160,12 +219,12 @@ type InitializedTrafficFlow struct {
 type DNS struct {
 	Enabled    bool
 	CaptureAll bool
-	Port       uint16
+	Port       Port
 	// The iptables chain where the upstream DNS requests should be directed to.
 	// It is only applied for IP V4. Use with care. (default "RETURN")
-	UpstreamTargetChain string
-	ConntrackZoneSplit  bool
-	ResolvConfigPath    string
+	UpstreamTargetChain    string
+	SkipConntrackZoneSplit bool
+	ResolvConfigPath       string
 }
 
 type InitializedDNS struct {
@@ -191,7 +250,7 @@ func (c DNS) Initialize(
 		return initialized, nil
 	}
 
-	if c.ConntrackZoneSplit {
+	if !c.SkipConntrackZoneSplit {
 		initialized.ConntrackZoneSplit = executables.Functionality.ConntrackZoneSplit()
 		if !initialized.ConntrackZoneSplit {
 			l.Warn("conntrack zone splitting is disabled. Functionality requires the 'conntrack' iptables module")
@@ -714,26 +773,26 @@ func DefaultConfig() Config {
 			NamePrefix: IptablesChainsPrefix,
 			Inbound: TrafficFlow{
 				Enabled:           true,
-				Port:              DefaultRedirectInbountPort,
+				Port:              Port(DefaultRedirectInbountPort),
 				ChainName:         "INBOUND",
 				RedirectChainName: "INBOUND_REDIRECT",
-				ExcludePorts:      []uint16{},
-				IncludePorts:      []uint16{},
+				ExcludePorts:      Ports{},
+				IncludePorts:      Ports{},
 			},
 			Outbound: TrafficFlow{
 				Enabled:           true,
-				Port:              DefaultRedirectOutboundPort,
+				Port:              Port(DefaultRedirectOutboundPort),
 				ChainName:         "OUTBOUND",
 				RedirectChainName: "OUTBOUND_REDIRECT",
-				ExcludePorts:      []uint16{},
-				IncludePorts:      []uint16{},
+				ExcludePorts:      Ports{},
+				IncludePorts:      Ports{},
 			},
 			DNS: DNS{
-				Port:               DefaultRedirectDNSPort,
-				Enabled:            false,
-				CaptureAll:         false,
-				ConntrackZoneSplit: true,
-				ResolvConfigPath:   "/etc/resolv.conf",
+				Port:                   Port(DefaultRedirectDNSPort),
+				Enabled:                false,
+				CaptureAll:             false,
+				SkipConntrackZoneSplit: false,
+				ResolvConfigPath:       "/etc/resolv.conf",
 			},
 			VNet: VNet{
 				Networks: []string{},
@@ -966,7 +1025,7 @@ func validateIP(address string, ipv6 bool) (error, bool) {
 func parseUint16(port string) (uint16, error) {
 	parsedPort, err := strconv.ParseUint(port, 10, 16)
 	if err != nil {
-		return 0, fmt.Errorf("invalid uint16 value: '%s'", port)
+		return 0, errors.Errorf("invalid uint16 value: '%s'", port)
 	}
 
 	return uint16(parsedPort), nil

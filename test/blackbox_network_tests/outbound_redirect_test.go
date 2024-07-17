@@ -45,7 +45,7 @@ var _ = Describe("Outbound IPv4 TCP traffic to any address:port", func() {
 					},
 					Outbound: config.TrafficFlow{
 						Enabled: true,
-						Port:    serverPort,
+						Port:    config.Port(serverPort),
 					},
 				},
 				RuntimeStdout: io.Discard,
@@ -121,7 +121,7 @@ var _ = Describe("Outbound IPv6 TCP traffic to any address:port", func() {
 				Redirect: config.Redirect{
 					Outbound: config.TrafficFlow{
 						Enabled: true,
-						Port:    serverPort,
+						Port:    config.Port(serverPort),
 					},
 					Inbound: config.TrafficFlow{
 						Enabled: true,
@@ -213,7 +213,7 @@ var _ = Describe("Outbound IPv4 TCP traffic to any address:port except excluded 
 				Redirect: config.Redirect{
 					Outbound: config.TrafficFlow{
 						Enabled:      true,
-						Port:         serverPort,
+						Port:         config.Port(serverPort),
 						ExcludePorts: []uint16{excludedPort},
 					},
 					Inbound: config.TrafficFlow{
@@ -326,7 +326,7 @@ var _ = Describe("Outbound IPv4 TCP traffic to any address:port except ports exc
 				Redirect: config.Redirect{
 					Outbound: config.TrafficFlow{
 						Enabled: true,
-						Port:    serverPort,
+						Port:    config.Port(serverPort),
 						ExcludePortsForUIDs: []string{
 							fmt.Sprintf("tcp:%d:%d", excludedPort, dnsUserUid),
 						},
@@ -435,7 +435,7 @@ var _ = Describe("Outbound IPv6 TCP traffic to any address:port except excluded 
 				Redirect: config.Redirect{
 					Outbound: config.TrafficFlow{
 						Enabled:      true,
-						Port:         serverPort,
+						Port:         config.Port(serverPort),
 						ExcludePorts: []uint16{excludedPort},
 					},
 					Inbound: config.TrafficFlow{
@@ -536,7 +536,7 @@ var _ = Describe("Outbound IPv4 TCP traffic only to included port", func() {
 				Redirect: config.Redirect{
 					Outbound: config.TrafficFlow{
 						Enabled:      true,
-						Port:         serverPort,
+						Port:         config.Port(serverPort),
 						IncludePorts: []uint16{includedPort},
 						ExcludePorts: []uint16{includedPort},
 					},
@@ -633,7 +633,7 @@ var _ = Describe("Outbound IPv6 TCP traffic only to included port", func() {
 				Redirect: config.Redirect{
 					Outbound: config.TrafficFlow{
 						Enabled:      true,
-						Port:         serverPort,
+						Port:         config.Port(serverPort),
 						IncludePorts: []uint16{includedPort},
 						ExcludePorts: []uint16{includedPort},
 					},
@@ -732,7 +732,7 @@ var _ = Describe("Outbound IPv4 TCP traffic to any address:port", func() {
 				Redirect: config.Redirect{
 					Outbound: config.TrafficFlow{
 						Enabled: false,
-						Port:    serverPort,
+						Port:    config.Port(serverPort),
 					},
 					Inbound: config.TrafficFlow{
 						Enabled: true,
@@ -809,7 +809,7 @@ var _ = Describe("Outbound IPv6 TCP traffic to any address:port", func() {
 				Redirect: config.Redirect{
 					Outbound: config.TrafficFlow{
 						Enabled: false,
-						Port:    serverPort,
+						Port:    config.Port(serverPort),
 					},
 					Inbound: config.TrafficFlow{
 						Enabled: true,
@@ -900,7 +900,7 @@ var _ = Describe("Outbound IPv6 TCP traffic to any address:port except ports exc
 				Redirect: config.Redirect{
 					Outbound: config.TrafficFlow{
 						Enabled: true,
-						Port:    serverPort,
+						Port:    config.Port(serverPort),
 						ExcludePortsForUIDs: []string{
 							fmt.Sprintf("tcp:%d:%d", excludedPort, dnsUserUid),
 						},
@@ -1010,7 +1010,7 @@ var _ = Describe("Outbound IPv4 TCP traffic from specific interface to other ip 
 				Redirect: config.Redirect{
 					Outbound: config.TrafficFlow{
 						Enabled: true,
-						Port:    serverPort,
+						Port:    config.Port(serverPort),
 					},
 					Inbound: config.TrafficFlow{
 						Enabled: true,
@@ -1101,7 +1101,7 @@ var _ = Describe("Outbound IPv6 TCP traffic from specific interface to other ip 
 				Redirect: config.Redirect{
 					Outbound: config.TrafficFlow{
 						Enabled: true,
-						Port:    serverPort,
+						Port:    config.Port(serverPort),
 					},
 					Inbound: config.TrafficFlow{
 						Enabled: true,

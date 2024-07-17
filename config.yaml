@@ -1,0 +1,12 @@
+redirect:
+  outbound:
+    excludePortsForIPs:
+      - 10.0.0.1
+      - 192.168.0.0/24
+      - fe80::1
+      - fd00::/8
+    port: 77777
+  inbound:
+    excludePortsForIPs:
+      - 1.1.1.1
+ipFamilyMode: ipv4
