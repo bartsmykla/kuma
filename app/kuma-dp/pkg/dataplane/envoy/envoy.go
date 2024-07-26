@@ -99,7 +99,7 @@ func (e *Envoy) Start(stop <-chan struct{}) error {
 	if err != nil {
 		return err
 	}
-	runLog.Info("bootstrap configuration saved to a file", "file", configFile)
+	runLog.Info("bootstrap configuration saved to a file", "file", configFile, "config", string(e.opts.BootstrapConfig))
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
