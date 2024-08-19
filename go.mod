@@ -74,14 +74,14 @@ require (
 	google.golang.org/grpc v1.65.0
 	google.golang.org/protobuf v1.34.2
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
-	helm.sh/helm/v3 v3.15.2
-	k8s.io/api v0.30.2
-	k8s.io/apiextensions-apiserver v0.30.2
-	k8s.io/apimachinery v0.30.2
-	k8s.io/client-go v0.30.2
+	helm.sh/helm/v3 v3.15.4
+	k8s.io/api v0.30.3
+	k8s.io/apiextensions-apiserver v0.30.3
+	k8s.io/apimachinery v0.30.3
+	k8s.io/client-go v0.30.3
 	k8s.io/klog/v2 v2.130.1
 	k8s.io/kube-openapi v0.0.0-20240423202451-8948a665c108
-	k8s.io/kubectl v0.30.2
+	k8s.io/kubectl v0.30.3
 	k8s.io/utils v0.0.0-20240423183400-0849a56e8f22
 	sigs.k8s.io/controller-runtime v0.18.4
 	sigs.k8s.io/controller-tools v0.15.0
@@ -211,11 +211,11 @@ require (
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.28.0 // indirect
 	go.opentelemetry.io/otel/metric v1.28.0 // indirect
 	go.uber.org/atomic v1.10.0 // indirect
-	golang.org/x/crypto v0.24.0 // indirect
+	golang.org/x/crypto v0.25.0 // indirect
 	golang.org/x/mod v0.18.0 // indirect
 	golang.org/x/oauth2 v0.21.0 // indirect
 	golang.org/x/sync v0.7.0 // indirect
-	golang.org/x/term v0.21.0 // indirect
+	golang.org/x/term v0.22.0 // indirect
 	golang.org/x/time v0.5.0 // indirect
 	golang.org/x/tools v0.22.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
