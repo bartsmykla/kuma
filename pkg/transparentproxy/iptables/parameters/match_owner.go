@@ -16,6 +16,8 @@ package parameters
 // ref. iptables-extensions(8) > owner
 
 import (
+	"strconv"
+
 	"github.com/kumahq/kuma/pkg/transparentproxy/config"
 )
 
@@ -41,17 +43,17 @@ func (p *OwnerParameter) Build(bool) []string {
 	return []string{p.flag, p.value}
 }
 
-func uid(id string, negative bool) *OwnerParameter {
+func uid(id uint64, negative bool) *OwnerParameter {
 	return &OwnerParameter{
 		flag:     "--uid-owner",
-		value:    id,
+		value:    strconv.FormatUint(id, 10),
 		negative: negative,
 	}
 }
 
 // Uid matches if the packet socket's file structure (if it has one) is owned by the user
 // with given UID
-func Uid(id string) *OwnerParameter {
+func Uid(id uint64) *OwnerParameter {
 	return uid(id, false)
 }
 
@@ -64,25 +66,8 @@ func UidRangeOrValue(exclusion config.Exclusion) *OwnerParameter {
 	}
 }
 
-func NotUid(id string) *OwnerParameter {
+func NotUid(id uint64) *OwnerParameter {
 	return uid(id, true)
-}
-
-func gid(id string, negative bool) *OwnerParameter {
-	return &OwnerParameter{
-		flag:     "--gid-owner",
-		value:    id,
-		negative: negative,
-	}
-}
-
-// Gid Matches if the packet socket's file structure is owned by the given group
-func Gid(id string) *OwnerParameter {
-	return gid(id, false)
-}
-
-func NotGid(id string) *OwnerParameter {
-	return gid(id, true)
 }
 
 // Owner attempts to match various characteristics of the packet creator,for locally generated

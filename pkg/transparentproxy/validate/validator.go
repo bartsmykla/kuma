@@ -3,68 +3,116 @@ package validate
 import (
 	"context"
 	"crypto/rand"
+	std_errors "errors"
 	"fmt"
 	"math/big"
 	"net"
 	"net/netip"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	"github.com/sethvargo/go-retry"
+
+	"github.com/kumahq/kuma/pkg/core"
+	tproxy_config "github.com/kumahq/kuma/pkg/transparentproxy/config"
+	tproxy_consts "github.com/kumahq/kuma/pkg/transparentproxy/consts"
 )
+
+var log = core.Log.WithName("transparentproxy.validator")
 
 const (
-	ServerPort      uint16 = 15006
-	retries                = 10
-	retriesInterval        = time.Second
+	serverListenPort      uint16 = 15006
+	clientRetries                = 10
+	clientRetriesInterval        = time.Second
 )
 
-type Validator struct {
-	Logger              logr.Logger
-	ServerListenIP      netip.Addr
-	ServerListenPort    uint16
-	ClientConnectIP     netip.Addr
-	ClientRetryInterval time.Duration
+type ValidatorBuilder struct {
+	serverListenPort    uint16
+	serverListenIP      netip.Addr
+	clientConnectIP     netip.Addr
+	clientRetryInterval time.Duration
 }
 
-func (v *Validator) getServerAddress() string {
-	return net.JoinHostPort(
-		v.ServerListenIP.String(),
-		fmt.Sprintf("%d", v.ServerListenPort),
-	)
+func NewValidator() *ValidatorBuilder {
+	return &ValidatorBuilder{
+		clientRetryInterval: clientRetriesInterval,
+		serverListenPort:    serverListenPort,
+	}
 }
 
-func NewValidator(useIpv6 bool, port uint16, logger logr.Logger) *Validator {
+func (vb *ValidatorBuilder) build(logName, serverListenIP, clientConnectIP string) *Validator {
 	v := Validator{
-		Logger: logger,
-		// Traffic to lo (but not 127.0.0.1) by sidecar will be redirected to
-		// KUMA_MESH_INBOUND_REDIRECT, so:
-		// connect to 127.0.0.6 should be redirected to 127.0.0.1
-		// connect to ::6       should be redirected to ::1
-		ServerListenIP:      netip.MustParseAddr("127.0.0.1"),
-		ClientConnectIP:     netip.MustParseAddr("127.0.0.6"),
-		ServerListenPort:    port,
-		ClientRetryInterval: retriesInterval,
+		logger:              log.WithName(logName),
+		serverListenPort:    vb.serverListenPort,
+		serverListenIP:      netip.MustParseAddr(serverListenIP),
+		clientConnectIP:     netip.MustParseAddr(clientConnectIP),
+		clientRetryInterval: vb.clientRetryInterval,
 	}
 
-	if useIpv6 {
-		v.ServerListenIP = netip.MustParseAddr("::1")
-		v.ClientConnectIP = netip.MustParseAddr("::6")
+	if vb.clientConnectIP.IsValid() {
+		v.clientConnectIP = vb.clientConnectIP
 	}
 
 	return &v
+}
+
+func (vb *ValidatorBuilder) IPv4() *Validator {
+	return vb.build("ipv4", "127.0.0.1", "127.0.0.6")
+}
+
+func (vb *ValidatorBuilder) IPv6(mode tproxy_config.IPFamilyMode) *Validator {
+	if mode == tproxy_config.IPFamilyModeIPv4 || mode == "" {
+		return nil
+	}
+
+	if ok, _ := tproxy_config.HasLocalIPv6(); !ok  {
+		return nil
+	}
+
+	return vb.build("ipv6", "::1", "::6")
+}
+
+func (vb *ValidatorBuilder) WithServerPort(port uint16) *ValidatorBuilder {
+	vb.serverListenPort = port
+	return vb
+}
+
+// Just for unit tests
+func (vb *ValidatorBuilder) WithClientRetryInterval(interval time.Duration) *ValidatorBuilder {
+	vb.clientRetryInterval = interval
+	return vb
+}
+
+// Just for unit tests
+func (vb *ValidatorBuilder) WithClientConnectIP(ip string) *ValidatorBuilder {
+	vb.clientConnectIP = netip.MustParseAddr(ip)
+	return vb
+}
+
+type Validator struct {
+	logger              logr.Logger
+	serverListenPort    uint16
+	serverListenIP      netip.Addr
+	clientConnectIP     netip.Addr
+	clientRetryInterval time.Duration
+}
+
+// Just for unit tests
+func (v *Validator) GetServerListenIP() string {
+	return v.serverListenIP.String()
 }
 
 func (v *Validator) RunServer(
 	ctx context.Context,
 	exitC chan struct{},
 ) (uint16, error) {
-	v.Logger.Info("starting iptables validation")
+	v.logger.Info("starting iptables validation")
 
 	s := LocalServer{
-		logger:   v.Logger.WithValues("address", v.getServerAddress()),
-		listenIP: []byte(v.ServerListenIP.String()),
+		logger:   v.logger.WithValues("address", v.getServerAddress()),
+		listenIP: []byte(v.serverListenIP.String()),
 		address:  v.getServerAddress(),
 	}
 
@@ -89,6 +137,80 @@ func (v *Validator) RunServer(
 	}
 }
 
+func (v *Validator) RunClient(
+	ctx context.Context,
+	serverPort uint16,
+	exitC chan struct{},
+) error {
+	defer close(exitC)
+
+	if err := retry.Do(
+		ctx,
+		retry.WithMaxRetries(clientRetries, retry.NewConstant(v.clientRetryInterval)), // backoff
+		func(context.Context) error {
+			if err := runLocalClient(v.clientConnectIP, serverPort); err != nil {
+				v.logger.Info("failed to connect to the server, retrying...", "error", err)
+				return retry.RetryableError(err)
+			}
+			v.logger.Info("client successfully connected to the server")
+			return nil
+		},
+	); err != nil {
+		return errors.Wrap(err, "client failed to connect to the verification server after retries")
+	}
+
+	v.logger.Info("validation successful, iptables rules applied correctly")
+
+	return nil
+}
+
+func (v *Validator) Run(ctx context.Context) error {
+	if v == nil {
+		return nil
+	}
+
+	v.logger = v.logger.WithName(getLoggerName(v.serverListenIP))
+
+	exitC := make(chan struct{})
+
+	if _, err := v.RunServer(ctx, exitC); err != nil {
+		return err
+	}
+
+	// by using 0, we make the client to generate a random port to connect verifying
+	// the iptables rules are working
+	return v.RunClient(ctx, 0, exitC)
+}
+
+func (v *Validator) getServerAddress() string {
+	if v == nil {
+		return ""
+	}
+
+	return net.JoinHostPort(
+		v.serverListenIP.String(),
+		fmt.Sprintf("%d", v.serverListenPort),
+	)
+}
+
+func getLoggerName(addr netip.Addr) string {
+	return strings.ToLower(tproxy_consts.IPTypeMap[addr.Is6()])
+}
+
+func RunValidation[T uint16 | tproxy_config.Port](
+	ctx context.Context,
+	serverPort T,
+	mode tproxy_config.IPFamilyMode,
+) error {
+	return errors.Wrap(
+		std_errors.Join(
+			NewValidator().WithServerPort(uint16(serverPort)).IPv4().Run(ctx),
+			NewValidator().WithServerPort(uint16(serverPort)).IPv6(mode).Run(ctx),
+		),
+		"validation failed",
+	)
+}
+
 type LocalServer struct {
 	logger   logr.Logger
 	port     uint16
@@ -103,9 +225,7 @@ func (s *LocalServer) Run(
 ) error {
 	s.logger.Info("server is listening")
 
-	config := &net.ListenConfig{}
-
-	l, err := config.Listen(ctx, "tcp", s.address)
+	l, err := (&net.ListenConfig{}).Listen(ctx, "tcp", s.address)
 	if err != nil {
 		close(readyC)
 		return err
@@ -140,33 +260,6 @@ func (s *LocalServer) handleTcpConnections(l net.Listener, exitC chan struct{}) 
 		default:
 		}
 	}
-}
-
-func (v *Validator) RunClient(
-	ctx context.Context,
-	serverPort uint16,
-	exitC chan struct{},
-) error {
-	defer close(exitC)
-
-	if err := retry.Do(
-		ctx,
-		retry.WithMaxRetries(retries, retry.NewConstant(v.ClientRetryInterval)), // backoff
-		func(context.Context) error {
-			if err := runLocalClient(v.ClientConnectIP, serverPort); err != nil {
-				v.Logger.Info("failed to connect to the server, retrying...", "error", err)
-				return retry.RetryableError(err)
-			}
-			v.Logger.Info("client successfully connected to the server")
-			return nil
-		},
-	); err != nil {
-		return errors.Wrap(err, "client failed to connect to the verification server after retries")
-	}
-
-	v.Logger.Info("validation successful, iptables rules applied correctly")
-
-	return nil
 }
 
 func runLocalClient(serverIP netip.Addr, serverPort uint16) error {
@@ -204,6 +297,7 @@ func runLocalClient(serverIP netip.Addr, serverPort uint16) error {
 	}
 
 	conn, err := dialer.Dial("tcp", serverAddress)
+	// conn, err := net.Dial("tcp", serverAddress)
 	if err != nil {
 		return err
 	}

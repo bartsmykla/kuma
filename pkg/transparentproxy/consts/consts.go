@@ -197,7 +197,7 @@ const IptablesChainsPrefix = "KUMA_MESH"
 // Default user identification constants used for running kuma-dp. These defaults
 // are utilized when no specific user is provided
 const (
-	OwnerDefaultUID      = "5678"
+	OwnerDefaultUID      = uint64(5678)
 	OwnerDefaultUsername = "kuma-dp"
 )
 

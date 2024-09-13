@@ -833,6 +833,9 @@ transparentProxy:
       dropInvalidPackets: false
       # -- Enables firewalld support to store iptables rules
       storeFirewalld: false
+      # -- Enables simple validation after the installation of the transparent proxy to ensure correct
+      # setup
+      validation: true
       # -- Enables verbose mode with longer argument/flag names and additional comments
       verbose: false
 

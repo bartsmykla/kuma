@@ -50,6 +50,23 @@ func getLoopbackInterfaceName() (string, error) {
 	return "", errors.New("no loopback interface found on the system")
 }
 
+func GetNonLoopbackAddress() (string, error) {
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return "", err
+	}
+
+	for _, a := range addrs {
+		if ipnet, ok := a.(*net.IPNet); ok &&
+			!ipnet.IP.IsLoopback() &&
+			ipnet.IP.To4() != nil {
+			return ipnet.IP.String(), nil
+		}
+	}
+
+	return "", errors.New("no non loopback address found on the system")
+}
+
 // parseExcludePortsForUIDs parses a slice of strings representing port
 // exclusion rules based on UIDs and returns a slice of Exclusion structs.
 //
@@ -270,20 +287,40 @@ func configureIPv6OutboundAddress() error {
 	return nil
 }
 
-func findUserUID(userOrUID string) (string, bool) {
-	if userOrUID == "" {
-		return "", false
-	}
-
-	if u, err := user.LookupId(userOrUID); err == nil {
+func lookupUserUID(value string) (string, bool) {
+	if u, err := user.LookupId(value); err == nil {
 		return u.Uid, true
 	}
 
-	if u, err := user.Lookup(userOrUID); err == nil {
+	if u, err := user.Lookup(value); err == nil {
 		return u.Uid, true
 	}
 
 	return "", false
+}
+
+func findUserUID[T string | uint64](userOrUID T) (uint64, bool) {
+	if userOrUID == *new(T) {
+		return 0, false
+	}
+
+	var valueToLookup string
+	switch v := any(userOrUID).(type) {
+	case string:
+		valueToLookup = v
+	case uint64:
+		valueToLookup = strconv.FormatUint(v, 10)
+	default:
+		return 0, false
+	}
+
+	if v, ok := lookupUserUID(valueToLookup); ok {
+		if u, err := strconv.ParseUint(v, 10, 32); err == nil {
+			return u, true
+		}
+	}
+
+	return 0, false
 }
 
 // buildRestoreArgs constructs a slice of flags for restoring iptables rules

@@ -3,14 +3,17 @@ package iptables
 import (
 	"context"
 	"fmt"
+	"runtime"
 	"slices"
 	"strings"
+	"syscall"
 
 	"github.com/pkg/errors"
 
 	"github.com/kumahq/kuma/pkg/transparentproxy/config"
 	"github.com/kumahq/kuma/pkg/transparentproxy/consts"
 	"github.com/kumahq/kuma/pkg/transparentproxy/iptables/builder"
+	"github.com/kumahq/kuma/pkg/transparentproxy/validate"
 )
 
 func Setup(ctx context.Context, cfg config.InitializedConfig) (string, error) {
@@ -24,7 +27,33 @@ func Setup(ctx context.Context, cfg config.InitializedConfig) (string, error) {
 		return "", errors.Wrap(err, "cleanup failed during setup")
 	}
 
-	return builder.RestoreIPTables(ctx, cfg)
+	output, err := builder.RestoreIPTables(ctx, cfg)
+	if err != nil {
+		return "", errors.Wrap(err, "restoring iptables failed")
+	}
+
+	return output, Validate(ctx, cfg)
+}
+
+func Validate(ctx context.Context, cfg config.InitializedConfig) error {
+	if !cfg.Validation {
+		return nil
+	}
+
+	exitC := make(chan error)
+
+	go func(exitC chan error) {
+		runtime.LockOSThread()
+		defer runtime.UnlockOSThread()
+
+		if _, _, err := syscall.Syscall(syscall.SYS_SETUID, uintptr(cfg.IPv4.KumaDPUser), 0, 0); err != 0 {
+			exitC <- err
+		}
+
+		exitC <- validate.RunValidation(ctx, cfg.IPv4.Redirect.Inbound.Port, cfg.IPv6.IPFamilyMode)
+	}(exitC)
+
+	return <-exitC
 }
 
 // Cleanup removes iptables rules and chains related to the transparent proxy

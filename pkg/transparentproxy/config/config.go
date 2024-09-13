@@ -600,7 +600,10 @@ type Config struct {
 	// crucial for environments where both IP families are in use, ensuring that
 	// the correct iptables rules are applied for the specified IP family
 	IPFamilyMode IPFamilyMode `json:"ipFamilyMode" envconfig:"ip_family_mode"` // KUMA_TRANSPARENT_PROXY_IP_FAMILY_MODE
-	CNIMode      bool         `json:"cniMode,omitempty" envconfig:"cni_mode"`  // KUMA_TRANSPARENT_PROXY_CNI_MODE
+	// Enables simple validation after the installation of the transparent proxy
+	// to ensure correct setup
+	Validation bool `json:"validation,omitempty"`                   // KUMA_TRANSPARENT_PROXY_VALIDATION
+	CNIMode    bool `json:"cniMode,omitempty" envconfig:"cni_mode"` // KUMA_TRANSPARENT_PROXY_CNI_MODE
 }
 
 func (c Config) WithStdout(stdout io.Writer) Config {
@@ -650,10 +653,10 @@ func (c Config) MarshalJSON() ([]byte, error) {
 	return json.Marshal(result)
 }
 
-func (c Config) InitializeKumaDPUser() (string, error) {
+func (c Config) InitializeKumaDPUser() (uint64, error) {
 	switch {
 	case c.CNIMode && c.KumaDPUser != "":
-		return c.KumaDPUser, nil
+		return strconv.ParseUint(c.KumaDPUser, 10, 32)
 	case c.CNIMode:
 		return consts.OwnerDefaultUID, nil
 	case c.KumaDPUser != "":
@@ -661,7 +664,7 @@ func (c Config) InitializeKumaDPUser() (string, error) {
 			return v, nil
 		}
 
-		return "", errors.Errorf(
+		return 0, errors.Errorf(
 			"the specified UID or username ('%s') does not refer to a valid user on the host",
 			c.KumaDPUser,
 		)
@@ -675,7 +678,7 @@ func (c Config) InitializeKumaDPUser() (string, error) {
 		return v, nil
 	}
 
-	return "", errors.Errorf(
+	return 0, errors.Errorf(
 		"no UID or username provided, and user with the default UID ('%s') or username ('%s') could not be found",
 		consts.OwnerDefaultUID,
 		consts.OwnerDefaultUsername,
@@ -780,7 +783,7 @@ type InitializedConfigIPvX struct {
 	// the transparent proxy, making them easier to manage and debug
 	Comments   InitializedComments
 	Ebpf       InitializedEbpf
-	KumaDPUser string
+	KumaDPUser uint64
 
 	enabled bool
 }
@@ -801,6 +804,9 @@ type InitializedConfig struct {
 	// DryRun when set will not execute, but just display instructions which
 	// otherwise would have served to install transparent proxy
 	DryRun bool
+	// Enables simple validation after the installation of the transparent proxy
+	// to ensure correct setup
+	Validation bool
 	// IPv4 contains the initialized configuration specific to IPv4. This
 	// includes all settings, executables, and rules relevant to IPv4 iptables
 	// management
@@ -812,7 +818,7 @@ type InitializedConfig struct {
 }
 
 func (c Config) Initialize(ctx context.Context) (InitializedConfig, error) {
-	var kumaDPUser string
+	var kumaDPUser uint64
 	var err error
 
 	if kumaDPUser, err = c.InitializeKumaDPUser(); err != nil {
@@ -844,8 +850,9 @@ func (c Config) Initialize(ctx context.Context) (InitializedConfig, error) {
 	}
 
 	initialized := InitializedConfig{
-		Logger: l,
-		DryRun: c.DryRun,
+		Logger:     l,
+		DryRun:     c.DryRun,
+		Validation: c.Validation,
 		IPv4: InitializedConfigIPvX{
 			Config:                 c,
 			Logger:                 loggerIPv4,
@@ -972,5 +979,6 @@ func DefaultConfig() Config {
 		IPFamilyMode:   IPFamilyModeDualStack,
 		StoreFirewalld: false,
 		CNIMode:        false,
+		Validation:     true,
 	}
 }

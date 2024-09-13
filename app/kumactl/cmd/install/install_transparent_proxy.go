@@ -13,6 +13,8 @@ import (
 	"github.com/spf13/pflag"
 
 	core_config "github.com/kumahq/kuma/pkg/config"
+	"github.com/kumahq/kuma/pkg/core"
+	kuma_log "github.com/kumahq/kuma/pkg/log"
 	"github.com/kumahq/kuma/pkg/transparentproxy"
 	"github.com/kumahq/kuma/pkg/transparentproxy/config"
 	"github.com/kumahq/kuma/pkg/transparentproxy/consts"
@@ -179,6 +181,10 @@ runuser -u kuma-dp -- \
 
 			if cfg.Redirect.DNS.CaptureAll {
 				cfg.Redirect.DNS.Enabled = true
+			}
+
+			if cfg.Validation {
+				core.SetLogger(core.NewLoggerTo(os.Stdout, kuma_log.InfoLevel))
 			}
 
 			if cfg.Ebpf.Enabled {
