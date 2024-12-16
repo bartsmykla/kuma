@@ -207,7 +207,7 @@ jobs:
               }
             
               // Wait before checking again
-              const nextCheck = new Date(Date.now() + interval).toLocaleTimeString();
-              console.log(`Next check will be in ${interval / 1_000} seconds, at: ${nextCheck}`);
+              const nextCheck = new Date(Date.now() + interval).toTimeString();
+              console.log(`Next check will be in ${interval / 1_000} seconds, at: ${nextCheck} (UTC)`);
               await new Promise(resolve => setTimeout(resolve, interval));
             }
