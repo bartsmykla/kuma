@@ -41,8 +41,8 @@ jobs:
             core.setOutput('branches', branches);
             
             await core.summary
-              .addRaw('Active release branches:').addEOL()
-              .addCodeBlock(JSON.stringify(branches, null, 2), 'json').addEOL()
+              .addRaw('Active release branches:', true)
+              .addCodeBlock(JSON.stringify(branches, null, 2), 'json')
               .write();
 
   trigger-branch:
@@ -82,7 +82,7 @@ jobs:
             core.setOutput('exists', false);
 
             await core.summary
-              .addRaw(`Branch \`${BRANCH}\` does not exist. Skipping the rest of the job`).addEOL()
+              .addRaw('Branch does not exist. Skipping the rest of the job', true)
               .write();
 
       - name: "Trigger the workflow"
@@ -116,9 +116,9 @@ jobs:
           script: |
             const maxRetries = 5;
             let retryCount = 0;
-            let runId = null;
+            let run = null;
 
-            while (retryCount < maxRetries && !runId) {
+            while (retryCount < maxRetries && !run) {
               console.log(`Checking for workflow run (attempt ${retryCount + 1})...`);
 
               const response = await github.rest.actions.listWorkflowRuns({
@@ -132,25 +132,26 @@ jobs:
               console.log(JSON.stringify(response, null, 2))
 
               if (response.data.workflow_runs.length > 0) {
-                runId = response.data.workflow_runs[0].id;
+                run = response.data.workflow_runs[0];
               }
 
-              if (!runId) {
+              if (!run) {
                 retryCount++;
                 await new Promise(resolve => setTimeout(resolve, 5000));
               }
             }
 
-            if (!runId) {
+            if (!run) {
               throw new Error(`Unable to retrieve run ID after ${maxRetries} retries.`);
             }
 
-            console.log(`Retrieved run ID: ${runId}`);
+            console.log(`Retrieved run ID: ${run.id}`);
 
-            core.setOutput('id', runId);
+            core.setOutput('id', run.id);
             
             await core.summary
-              .addRaw('Triggered Workflow Run: ').addLink(`${runId}`, `${context.payload.repository.html_url}`)
+              .addRaw('Triggered Workflow Run: ')
+              .addLink(String(run.id), run.html_url)
               .write();
 
       - name: "Monitor triggered workflow"
