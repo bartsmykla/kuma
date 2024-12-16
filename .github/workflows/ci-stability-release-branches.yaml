@@ -163,35 +163,51 @@ jobs:
           RUN_ID: ${{ steps.get-run-id.outputs.id }}
         with:
           script: |
+            const interval = 10_000; // Check every 10 seconds
+
             while (true) {
               const { data: { jobs } } = await github.rest.actions.listJobsForWorkflowRun({
                 ...context.repo,
                 run_id: process.env.RUN_ID,
               });
+                            
+              const jobStatuses = jobs.map(job => {
+                const finishedSteps = job.steps.filter(s => s.conclusion).length;
+                const totalSteps = job.steps.length;
+                
+                return {
+                  Job: job.name,
+                  Status: job.status,
+                  Steps: `${finishedSteps}/${totalSteps}`,
+                  Conclusion: job.conclusion || 'in_progress',
+                };
+              });
               
-              console.table(
-                jobs.map(job => {
-                  const finishedSteps = job.steps.filter(s => s.conclusion).length;
-                  const totalSteps = job.steps.length;
-                  
-                  return {
-                    Job: job.name,
-                    Status: job.status,
-                    Steps: `${finishedSteps}/${totalSteps}`,
-                    Conclusion: job.conclusion || 'in_progress',
-                  };
-                })
-              );
+              // Log current status in console
+              console.table(jobStatuses);
               
               if (jobs.every(job => job.conclusion !== null)) {
                 console.log('All jobs completed');
-                break;
+                
+                // Prepare table data for summary
+                const tableData = [
+                  { data: 'Job', header: true },
+                  { data: 'Status', header: true },
+                  { data: 'Steps', header: true },
+                  { data: 'Conclusion', header: true },
+                  ...jobStatuses.flatMap(job => [
+                    { data: job.Job },
+                    { data: job.Status },
+                    { data: job.Steps },
+                    { data: job.Conclusion },
+                  ]),
+                ];
+                
+                return core.summary.addTable([tableData]).write();
               }
-              
-              const interval = 10_000;
+            
+              // Wait before checking again
               const nextCheck = new Date(Date.now() + interval).toLocaleTimeString();
-              
-              console.log(`Next check will be in ${interval/1_000} seconds, at: ${nextCheck}`);
-              
+              console.log(`Next check will be in ${interval / 1_000} seconds, at: ${nextCheck}`);
               await new Promise(resolve => setTimeout(resolve, interval));
             }
