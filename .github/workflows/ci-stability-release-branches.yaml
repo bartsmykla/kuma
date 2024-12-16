@@ -17,7 +17,7 @@ jobs:
     permissions:
       contents: read
     outputs:
-      branches: ${{ steps.get-branches.outputs.branches }}
+      branches: ${{ steps.get-branches.outputs.result }}
     steps:
       - name: "Get active branches"
         id: get-branches
@@ -37,13 +37,13 @@ jobs:
             if (!Array.isArray(branches) || branches.length === 0) {
               throw new Error('No active branches to process');
             }
-
-            core.setOutput('branches', branches);
             
             await core.summary
               .addRaw('Active release branches:', true)
-              .addCodeBlock(JSON.stringify(branches, null, 2), 'json')
+              .addCodeBlock(JSON.stringify(branches), 'json')
               .write();
+            
+            return branches;
 
   trigger-build-test-distribute:
     needs: get-active-release-branches
@@ -60,52 +60,22 @@ jobs:
     env:
       BRANCH: ${{ matrix.branch }}
     steps:
-      - name: "Check if branch exists"
-        id: check-branch
-        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.1.0
-        with:
-          script: |
-            const { BRANCH } = process.env;
-
-            try {
-              await github.rest.repos.getBranch({ ...context.repo, branch: BRANCH });
-              console.log(`Branch '${BRANCH}' exists`);
-              return core.setOutput('exists', true);
-            } catch (error) {
-              if (error.status !== 404) {
-                throw error; // Unexpected error
-              }
-            }
-
-            console.log(`Branch '${BRANCH}' does not exist`);
-            core.setOutput('exists', false);
-
-            await core.summary
-              .addRaw('Branch does not exist. Skipping the rest of the job', true)
-              .write();
-
       - name: "Trigger the workflow"
-        if: steps.check-branch.outputs.exists == 'true'
         id: trigger-workflow
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.1.0
         with:
           script: |
-            const workflowToTrigger = 'build-test-distribute.yaml';
-
             core.setOutput('started', new Date().toISOString());
 
             await github.rest.actions.createWorkflowDispatch({
               ...context.repo,
-              workflow_id: workflowToTrigger,
+              workflow_id: 'build-test-distribute.yaml',
               ref: process.env.BRANCH,
             });
 
             core.setOutput('finished', new Date(Date.now() + 10_000).toISOString());
 
-            console.log(`Triggered workflow '${workflowToTrigger}' for branch ${process.env.BRANCH}`);
-
       - name: "Retrieve workflow run ID"
-        if: steps.check-branch.outputs.exists == 'true'
         id: get-run-id
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.1.0
         env:
@@ -143,23 +113,22 @@ jobs:
             }
 
             console.log(`Retrieved run ID: ${run.id}`);
-
-            core.setOutput('id', run.id);
             
             await core.summary
               .addHeading(`Run <a href="${run.html_url}">${run.id}</a>`, 4)
               .write();
+            
+            return run.id
 
       - name: "Monitor triggered workflow"
-        if: steps.check-branch.outputs.exists == 'true'
         id: monitor-triggered-workflow
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.1.0
         timeout-minutes: 120
         env:
-          RUN_ID: ${{ steps.get-run-id.outputs.id }}
+          RUN_ID: ${{ steps.get-run-id.outputs.result }}
         with:
           script: |
-            const interval = 10_000; // Check every 10 seconds
+            const interval = 60_000; // Check every 60 seconds
 
             while (true) {
               const { data: { jobs } } = await github.rest.actions.listJobsForWorkflowRun({
@@ -205,10 +174,8 @@ jobs:
                   ];
                 });
                 
-                const tableData = [headers, ...rows];
-                
                 return core.summary
-                  .addTable(tableData)
+                  .addTable([headers, ...rows])
                   .write();
               }
             
