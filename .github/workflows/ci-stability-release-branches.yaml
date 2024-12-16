@@ -53,6 +53,8 @@ jobs:
     if: ${{ !inputs.branch }}
     needs: get-active-release-branches
     runs-on: ubuntu-24.04
+    permissions:
+      actions: write # required to trigger workflows
     steps:
       - name: "Trigger workflows for active release branches"
         id: trigger-branch-runs
