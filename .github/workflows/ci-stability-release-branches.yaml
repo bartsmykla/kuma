@@ -147,8 +147,7 @@ jobs:
             core.setOutput('id', run.id);
             
             await core.summary
-              .addRaw('<b>Run ID:</b> ')
-              .addLink(String(run.id), run.html_url)
+              .addRaw(`<b>Run <a href="${run.html_url}">${run.id}</a> Summary</b> `, true)
               .write();
 
       - name: "Monitor triggered workflow"
@@ -209,7 +208,6 @@ jobs:
                 const tableData = [headers, ...rows];
                 
                 return core.summary
-                  .addHeading('Run Summary', 4)
                   .addTable(tableData)
                   .write();
               }
