@@ -147,7 +147,7 @@ jobs:
             core.setOutput('id', run.id);
             
             await core.summary
-              .addHeading(`Run <a href="${run.html_url}">${run.id}</a>:`, 4)
+              .addHeading(`Run <a href="${run.html_url}">${run.id}</a>`, 4)
               .write();
 
       - name: "Monitor triggered workflow"
