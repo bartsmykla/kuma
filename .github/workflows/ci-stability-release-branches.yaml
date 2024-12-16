@@ -17,6 +17,7 @@ permissions: {}
 
 concurrency:
   group: ${{ github.workflow }}
+  cancel-in-progress: false
 
 jobs:
   get-active-release-branches:
@@ -87,19 +88,17 @@ jobs:
       actions: write # required to trigger workflows
     outputs:
       run-id: ${{ steps.get-run-id.outputs.id }}
-    env:
-      BRANCH: ${{ needs.get-active-release-branches.outputs.branch }}
     steps:
       - name: "Check if branch exists"
         id: check-branch
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.1.0
         with:
           script: |
-            const { BRANCH } = process.env;
+            const branch = core.getInput('branch', { required: true });
 
             try {
-              await github.rest.repos.getBranch({ ...context.repo, branch: BRANCH });
-              console.log(`Branch '${BRANCH}' exists`);
+              await github.rest.repos.getBranch({ ...context.repo, branch });
+              console.log(`Branch '${branch}' exists`);
               return core.setOutput('exists', true);
             } catch (error) {
               if (error.status !== 404) {
@@ -107,12 +106,11 @@ jobs:
               }
             }
             
-            console.log(`Branch '${BRANCH}' does not exist`);
+            console.log(`Branch '${branch}' does not exist`);
             core.setOutput('exists', false);
 
             await core.summary
-              .addHeading("Job Skipped")
-              .addRaw(`Branch '${BRANCH}' does not exist. Skipping the rest of the job`)
+              .addRaw(`Branch '${branch}' does not exist. Skipping the rest of the job`)
               .write();
 
       - name: "Trigger the workflow"
@@ -121,7 +119,7 @@ jobs:
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.1.0
         with:
           script: |
-            const { BRANCH } = process.env;
+            const branch = core.getInput('branch', { required: true });
             const workflowToTrigger = 'build-test-distribute.yaml';
 
             const started = new Date().toISOString();
@@ -129,12 +127,12 @@ jobs:
             await github.rest.actions.createWorkflowDispatch({
               ...context.repo,
               workflow_id: workflowToTrigger,
-              ref: BRANCH,
+              ref: branch,
             });
 
             const finished = new Date(new Date().getTime() + 10 * 1000).toISOString();
 
-            console.log(`Triggered workflow '${workflowToTrigger}' for branch ${BRANCH}`);
+            console.log(`Triggered workflow '${workflowToTrigger}' for branch ${branch}`);
 
             core.setOutput('started', started);
             core.setOutput('finished', finished);
@@ -148,7 +146,8 @@ jobs:
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.1.0
         with:
           script: |
-            const { BRANCH, STARTED, FINISHED } = process.env;
+            const { STARTED, FINISHED } = process.env;
+            const branch = core.getInput('branch', { required: true });
             const workflowId = 'build-test-distribute.yaml';
 
             const maxRetries = 5;
@@ -161,7 +160,7 @@ jobs:
               const { data: runs } = await github.rest.actions.listWorkflowRuns({
                 ...context.repo,
                 workflow_id: workflowId,
-                branch: BRANCH,
+                branch: branch,
                 created: `${STARTED}..${FINISHED}`,
                 per_page: 1,
               });
