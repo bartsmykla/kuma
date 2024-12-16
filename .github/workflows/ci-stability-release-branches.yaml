@@ -185,10 +185,10 @@ jobs:
                 break;
               }
               
-              const delay = 10_000;
-              const nextCheck = new Date(Date.now() + delay).toLocaleTimeString();
+              const interval = 10_000;
+              const nextCheck = new Date(Date.now() + interval).toLocaleTimeString();
               
-              console.log(`Next check will be in 10 seconds, at: ${nextCheck}`);
+              console.log(`Next check will be in ${interval/1_000} seconds, at: ${nextCheck}`);
               
-              await new Promise(resolve => setTimeout(resolve, nextCheck));
+              await new Promise(resolve => setTimeout(resolve, interval));
             }
