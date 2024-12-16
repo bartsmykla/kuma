@@ -147,7 +147,8 @@ jobs:
             core.setOutput('id', run.id);
             
             await core.summary
-              .addRaw('Triggered Workflow Run: ')
+              .addHeading('Triggered Workflow Run', 3)
+              .addRaw('**ID:** ')
               .addLink(String(run.id), run.html_url)
               .write();
 
@@ -209,7 +210,7 @@ jobs:
                 const tableData = [headers, ...rows];
                 
                 return core.summary
-                  .addHeading('Workflow run summary', 4)
+                  .addHeading('Summary', 4)
                   .addTable(tableData)
                   .write();
               }
