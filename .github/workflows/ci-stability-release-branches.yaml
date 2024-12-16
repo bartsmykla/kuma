@@ -172,6 +172,7 @@ jobs:
               });
                             
               const jobStatuses = jobs.map(job => {
+                console.log(JSON.stringify(job, null, 2))
                 const finishedSteps = job.steps.filter(s => s.conclusion).length;
                 const totalSteps = job.steps.length;
                 
@@ -205,7 +206,10 @@ jobs:
                   ]),
                 ];
                 
-                return core.summary.addTable(tableData).write();
+                return core.summary
+                  .addHeading('Workflow run summary')
+                  .addTable(tableData)
+                  .write();
               }
             
               // Wait before checking again
