@@ -191,11 +191,13 @@ jobs:
                 
                 // Prepare table data for summary
                 const tableData = [
-                  { data: 'Job', header: true },
-                  { data: 'Status', header: true },
-                  { data: 'Steps', header: true },
-                  { data: 'Conclusion', header: true },
-                  ...jobStatuses.flatMap(job => [
+                  [
+                    { data: 'Job', header: true },
+                    { data: 'Status', header: true },
+                    { data: 'Steps', header: true },
+                    { data: 'Conclusion', header: true },
+                  ],
+                  ...jobStatuses.map(job => [
                     { data: job.Job },
                     { data: job.Status },
                     { data: job.Steps },
@@ -203,7 +205,7 @@ jobs:
                   ]),
                 ];
                 
-                return core.summary.addTable([tableData]).write();
+                return core.summary.addTable(tableData).write();
               }
             
               // Wait before checking again
