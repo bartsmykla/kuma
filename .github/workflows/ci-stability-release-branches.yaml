@@ -21,7 +21,7 @@ jobs:
     steps:
       - name: "Get active branches"
         id: get-branches
-        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.1.0# v7.1.0
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.1.0
         env:
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         with:
@@ -78,7 +78,7 @@ jobs:
             core.setOutput('exists', false);
 
             await core.summary
-              .addRaw(`Branch '${BRANCH}' does not exist. Skipping the rest of the job`)
+              .addRaw(`Branch \`${BRANCH}\` does not exist. Skipping the rest of the job`)
               .write();
 
       - name: "Trigger the workflow"
@@ -151,6 +151,7 @@ jobs:
             core.setOutput('id', runId);
 
       - name: "Monitor triggered workflow"
+        if: steps.check-branch.outputs.exists == 'true'
         id: monitor-triggered-workflow
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.1.0
         timeout-minutes: 120
@@ -186,6 +187,8 @@ jobs:
                 console.log('All jobs completed');
                 break;
               }
+              
+              console.log("Waiting 10s before the next check")
 
-              await new Promise(resolve => setTimeout(resolve, 60000));
+              await new Promise(resolve => setTimeout(resolve, 10000));
             }
