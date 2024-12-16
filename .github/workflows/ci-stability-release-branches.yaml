@@ -188,7 +188,6 @@ jobs:
                 
                 // Prepare table data for summary
                 const headers = [
-                  { data: 'ID', header: true },
                   { data: 'Job', header: true },
                   { data: 'Status', header: true },
                   { data: 'Steps', header: true },
@@ -200,8 +199,7 @@ jobs:
                   const totalSteps = job.steps.length;
                   
                   return [
-                    { data: `<a href="${job.html_url}">${job.id}</a>` },
-                    { data: job.name },
+                    { data: `<a href="${job.html_url}">${job.name}</a>` },
                     { data: job.status },
                     { data: `${finishedSteps}/${totalSteps}` },
                     { data: job.conclusion || 'in_progress' },
@@ -211,7 +209,7 @@ jobs:
                 const tableData = [headers, ...rows];
                 
                 return core.summary
-                  .addHeading('Workflow run summary')
+                  .addHeading('Workflow run summary', 4)
                   .addTable(tableData)
                   .write();
               }
