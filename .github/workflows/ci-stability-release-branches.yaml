@@ -56,175 +56,177 @@ jobs:
     runs-on: ubuntu-24.04
     permissions:
       actions: write # required to trigger workflows
+    strategy:
+      matrix:
+        branch: ${{ fromJSON(needs.get-active-release-branches.outputs.branches) }}
+      fail-fast: true
+      max-parallel: 1
     steps:
       - name: "Trigger workflows for active release branches"
         id: trigger-branch-runs
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.1.0
         env:
-          BRANCHES: ${{ needs.get-active-release-branches.outputs.branches }}
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         with:
           script: |
-            const { BRANCHES, DEFAULT_BRANCH } = process.env;
-            const branches = JSON.parse(BRANCHES);
-            const workflowId = 'ci-stability-release-branches.yaml';
+            console.log(JSON.stringify(context, null,  '  '));
+#            const { BRANCHES, DEFAULT_BRANCH } = process.env;
+#            const workflowId = 'ci-stability-release-branches.yaml';
+#
+#            console.log(`Triggering workflow '${workflowId}' for branch: ${branch}`);
+#
+#            await github.rest.actions.createWorkflowDispatch({
+#              ...context.repo,
+#              workflow_id: workflowId,
+#              ref: DEFAULT_BRANCH,
+#              inputs: { branch }
+#            });
 
-            for (const branch of branches) {
-              console.log(`Triggering workflow '${workflowId}' for branch: ${branch}`);
-  
-              await github.rest.actions.createWorkflowDispatch({
-                ...context.repo,
-                workflow_id: workflowId,
-                ref: DEFAULT_BRANCH,
-                inputs: { branch }
-              });
-            }
-
-  trigger-build-test-distribute:
-    if: contains(fromJSON(needs.get-active-release-branches.outputs.branches), inputs.branch)
-    needs: get-active-release-branches
-    runs-on: ubuntu-24.04
-    permissions:
-      actions: write # required to trigger workflows
-    outputs:
-      run-id: ${{ steps.get-run-id.outputs.id }}
-    steps:
-      - name: "Check if branch exists"
-        id: check-branch
-        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.1.0
-        with:
-          script: |
-            const branch = core.getInput('branch', { required: true });
-
-            try {
-              await github.rest.repos.getBranch({ ...context.repo, branch });
-              console.log(`Branch '${branch}' exists`);
-              return core.setOutput('exists', true);
-            } catch (error) {
-              if (error.status !== 404) {
-                throw error; // Unexpected error
-              }
-            }
-            
-            console.log(`Branch '${branch}' does not exist`);
-            core.setOutput('exists', false);
-
-            await core.summary
-              .addRaw(`Branch '${branch}' does not exist. Skipping the rest of the job`)
-              .write();
-
-      - name: "Trigger the workflow"
-        if: steps.check-branch.outputs.exists == 'true'
-        id: trigger-workflow
-        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.1.0
-        with:
-          script: |
-            const branch = core.getInput('branch', { required: true });
-            const workflowToTrigger = 'build-test-distribute.yaml';
-
-            const started = new Date().toISOString();
-
-            await github.rest.actions.createWorkflowDispatch({
-              ...context.repo,
-              workflow_id: workflowToTrigger,
-              ref: branch,
-            });
-
-            const finished = new Date(new Date().getTime() + 10 * 1000).toISOString();
-
-            console.log(`Triggered workflow '${workflowToTrigger}' for branch ${branch}`);
-
-            core.setOutput('started', started);
-            core.setOutput('finished', finished);
-
-      - name: "Retrieve workflow run ID"
-        if: steps.check-branch.outputs.exists == 'true'
-        id: get-run-id
-        env:
-          STARTED: ${{ steps.trigger-workflow.outputs.started }}
-          FINISHED: ${{ steps.trigger-workflow.outputs.finished }}
-        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.1.0
-        with:
-          script: |
-            const { STARTED, FINISHED } = process.env;
-            const branch = core.getInput('branch', { required: true });
-            const workflowId = 'build-test-distribute.yaml';
-
-            const maxRetries = 5;
-            let retryCount = 0;
-            let runId = null;
-
-            while (retryCount < maxRetries && !runId) {
-              console.log(`Checking for workflow run (attempt ${retryCount + 1})...`);
-
-              const { data: runs } = await github.rest.actions.listWorkflowRuns({
-                ...context.repo,
-                workflow_id: workflowId,
-                branch: branch,
-                created: `${STARTED}..${FINISHED}`,
-                per_page: 1,
-              });
-
-              if (runs.workflow_runs.length > 0) {
-                runId = runs.workflow_runs[0].id;
-              }
-
-              if (!runId) {
-                retryCount++;
-                await new Promise(resolve => setTimeout(resolve, 5000));
-              }
-            }
-
-            if (!runId) {
-              throw new Error(`Unable to retrieve run ID after ${maxRetries} retries.`);
-            }
-
-            console.log(`Retrieved run ID: ${runId}`);
-
-            core.setOutput('id', runId);
-
-  monitor-triggered-workflow:
-    needs: trigger-build-test-distribute
-    runs-on: ubuntu-24.04
-    timeout-minutes: 115
-    permissions:
-      actions: read
-      checks: read
-    env:
-      RUN_ID: ${{ needs.trigger-build-test-distribute.outputs.run-id }}
-    steps:
-      - name: "Monitor triggered workflow"
-        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.1.0
-        with:
-          script: |
-            const { RUN_ID } = process.env;
-            
-            while (true) {
-              const response = await github.rest.actions.listJobsForWorkflowRun({
-                ...context.repo,
-                run_id: RUN_ID,
-              });
-              
-              const { jobs } = response.data;
-
-              console.table(
-                jobs.map(job => {
-                  const finishedSteps = job.steps.filter(s => s.conclusion).length;
-                  const totalSteps = job.steps.length;
-
-                  return {
-                    Job: job.name,
-                    Status: job.status,
-                    Steps: `${finishedSteps}/${totalSteps}`,
-                    Conclusion: job.conclusion || 'in_progress',
-                  };
-                })
-              );
-
-              if (jobs.every(job => job.conclusion !== null)) {
-                console.log('All jobs completed');
-                break;
-              }
-
-              await new Promise(resolve => setTimeout(resolve, 60000));
-            }
+#  trigger-build-test-distribute:
+#    if: contains(fromJSON(needs.get-active-release-branches.outputs.branches), inputs.branch)
+#    needs: get-active-release-branches
+#    runs-on: ubuntu-24.04
+#    permissions:
+#      actions: write # required to trigger workflows
+#    outputs:
+#      run-id: ${{ steps.get-run-id.outputs.id }}
+#    steps:
+#      - name: "Check if branch exists"
+#        id: check-branch
+#        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.1.0
+#        with:
+#          script: |
+#            const branch = core.getInput('branch', { required: true });
+#
+#            try {
+#              await github.rest.repos.getBranch({ ...context.repo, branch });
+#              console.log(`Branch '${branch}' exists`);
+#              return core.setOutput('exists', true);
+#            } catch (error) {
+#              if (error.status !== 404) {
+#                throw error; // Unexpected error
+#              }
+#            }
+#
+#            console.log(`Branch '${branch}' does not exist`);
+#            core.setOutput('exists', false);
+#
+#            await core.summary
+#              .addRaw(`Branch '${branch}' does not exist. Skipping the rest of the job`)
+#              .write();
+#
+#      - name: "Trigger the workflow"
+#        if: steps.check-branch.outputs.exists == 'true'
+#        id: trigger-workflow
+#        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.1.0
+#        with:
+#          script: |
+#            const branch = core.getInput('branch', { required: true });
+#            const workflowToTrigger = 'build-test-distribute.yaml';
+#
+#            const started = new Date().toISOString();
+#
+#            await github.rest.actions.createWorkflowDispatch({
+#              ...context.repo,
+#              workflow_id: workflowToTrigger,
+#              ref: branch,
+#            });
+#
+#            const finished = new Date(new Date().getTime() + 10 * 1000).toISOString();
+#
+#            console.log(`Triggered workflow '${workflowToTrigger}' for branch ${branch}`);
+#
+#            core.setOutput('started', started);
+#            core.setOutput('finished', finished);
+#
+#      - name: "Retrieve workflow run ID"
+#        if: steps.check-branch.outputs.exists == 'true'
+#        id: get-run-id
+#        env:
+#          STARTED: ${{ steps.trigger-workflow.outputs.started }}
+#          FINISHED: ${{ steps.trigger-workflow.outputs.finished }}
+#        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.1.0
+#        with:
+#          script: |
+#            const { STARTED, FINISHED } = process.env;
+#            const branch = core.getInput('branch', { required: true });
+#            const workflowId = 'build-test-distribute.yaml';
+#
+#            const maxRetries = 5;
+#            let retryCount = 0;
+#            let runId = null;
+#
+#            while (retryCount < maxRetries && !runId) {
+#              console.log(`Checking for workflow run (attempt ${retryCount + 1})...`);
+#
+#              const { data: runs } = await github.rest.actions.listWorkflowRuns({
+#                ...context.repo,
+#                workflow_id: workflowId,
+#                branch: branch,
+#                created: `${STARTED}..${FINISHED}`,
+#                per_page: 1,
+#              });
+#
+#              if (runs.workflow_runs.length > 0) {
+#                runId = runs.workflow_runs[0].id;
+#              }
+#
+#              if (!runId) {
+#                retryCount++;
+#                await new Promise(resolve => setTimeout(resolve, 5000));
+#              }
+#            }
+#
+#            if (!runId) {
+#              throw new Error(`Unable to retrieve run ID after ${maxRetries} retries.`);
+#            }
+#
+#            console.log(`Retrieved run ID: ${runId}`);
+#
+#            core.setOutput('id', runId);
+#
+#  monitor-triggered-workflow:
+#    needs: trigger-build-test-distribute
+#    runs-on: ubuntu-24.04
+#    timeout-minutes: 115
+#    permissions:
+#      actions: read
+#      checks: read
+#    env:
+#      RUN_ID: ${{ needs.trigger-build-test-distribute.outputs.run-id }}
+#    steps:
+#      - name: "Monitor triggered workflow"
+#        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.1.0
+#        with:
+#          script: |
+#            const { RUN_ID } = process.env;
+#
+#            while (true) {
+#              const response = await github.rest.actions.listJobsForWorkflowRun({
+#                ...context.repo,
+#                run_id: RUN_ID,
+#              });
+#
+#              const { jobs } = response.data;
+#
+#              console.table(
+#                jobs.map(job => {
+#                  const finishedSteps = job.steps.filter(s => s.conclusion).length;
+#                  const totalSteps = job.steps.length;
+#
+#                  return {
+#                    Job: job.name,
+#                    Status: job.status,
+#                    Steps: `${finishedSteps}/${totalSteps}`,
+#                    Conclusion: job.conclusion || 'in_progress',
+#                  };
+#                })
+#              );
+#
+#              if (jobs.every(job => job.conclusion !== null)) {
+#                console.log('All jobs completed');
+#                break;
+#              }
+#
+#              await new Promise(resolve => setTimeout(resolve, 60000));
+#            }
