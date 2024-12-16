@@ -172,7 +172,6 @@ jobs:
               });
                             
               const jobStatuses = jobs.map(job => {
-                console.log(JSON.stringify(job, null, 2))
                 const finishedSteps = job.steps.filter(s => s.conclusion).length;
                 const totalSteps = job.steps.length;
                 
@@ -191,20 +190,28 @@ jobs:
                 console.log('All jobs completed');
                 
                 // Prepare table data for summary
-                const tableData = [
-                  [
-                    { data: 'Job', header: true },
-                    { data: 'Status', header: true },
-                    { data: 'Steps', header: true },
-                    { data: 'Conclusion', header: true },
-                  ],
-                  ...jobStatuses.map(job => [
-                    { data: job.Job },
-                    { data: job.Status },
-                    { data: job.Steps },
-                    { data: job.Conclusion },
-                  ]),
+                const headers = [
+                  { data: 'ID', header: true },
+                  { data: 'Job', header: true },
+                  { data: 'Status', header: true },
+                  { data: 'Steps', header: true },
+                  { data: 'Conclusion', header: true },
                 ];
+                
+                const rows = jobs.map(job => {
+                  const finishedSteps = job.steps.filter(s => s.conclusion).length;
+                  const totalSteps = job.steps.length;
+                  
+                  return [
+                    { data: `<a href="${job.html_url}">${job.id}</a>` },
+                    { data: job.name },
+                    { data: job.status },
+                    { data: `${finishedSteps}/${totalSteps}` },
+                    { data: job.conclusion || 'in_progress' },
+                  ];
+                });
+                
+                const tableData = [headers, ...rows];
                 
                 return core.summary
                   .addHeading('Workflow run summary')
