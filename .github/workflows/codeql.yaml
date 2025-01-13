@@ -31,7 +31,7 @@ jobs:
           config-file: ./.github/codeql/codeql-config.yml
           languages: ${{ matrix.language }}
           build-mode: manual
-          debug: ${{ runner.debug == '1' }}
+          debug: true
       - name: Build
         run: |
           echo "${{ steps.checkout.outputs.ref }}"
