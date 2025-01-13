@@ -1,6 +1,8 @@
 name: "CodeQL"
 
 on:
+  push:
+    branches: [master]
   schedule:
     - cron: '15 3 * * *' # Runs daily at 3:15 AM UTC
   workflow_dispatch: {}
@@ -32,6 +34,7 @@ jobs:
           languages: ${{ matrix.language }}
           build-mode: autobuild
           debug: 'true'
+
       - name: Build
         run: |
           echo "${{ steps.checkout.outputs.ref }}"
@@ -42,7 +45,4 @@ jobs:
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@df409f7d9260372bd5f19e5b04e83cb3c43714ae # v3.27.9
         with:
-          ref: ${{ steps.checkout.outputs.ref }}
-          sha: ${{ steps.checkout.outputs.commit }}
           category: "/language:${{matrix.language}}"
-          check_name: CodeQL
