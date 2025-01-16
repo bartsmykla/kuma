@@ -13,10 +13,10 @@
   ],
   "enabledManagers": [
     "custom.regex",
-    "dockerfile",
-    "github-actions",
-    "gomod",
-    "helm-values",
+//    "dockerfile",
+//    "github-actions",
+//    "gomod",
+//    "helm-values",
   ],
   "postUpdateOptions": [
     "gomodMassage", // Adjust Go module replacements after updates
@@ -30,11 +30,11 @@
       "customType": "regex",
       "fileMatch": ["\\.github\/.*\\.ya?ml$"],
       "matchStrings": [
-        "(?<packageName>Kong\\/public-shared-actions\\/(?<depName>[^\\s@]+))@(?:(?<currentDigest>[^\\s]+) # v?)?(?<currentValue>[^\\s]+)",
+        "(?<packageName>Kong\\/public-shared-actions\\/(?<depName>[^\\s@]+))@(?:(?<currentDigest>[^\\s]+) # )?v(?<currentValue>[^\\s]+)",
       ],
       "datasourceTemplate": "github-tags",
       "extractVersionTemplate": "^(?:@{{{depName}}}@|v)(?<version>[0-9\\.]+)$",
-      "autoReplaceStringTemplate": "{{{packageName}}}@{{{newDigest}}} # v{{{newVersion}}}",
+      "autoReplaceStringTemplate": "{{{packageName}}}@{{#if newDigest}}{{{newDigest}}} # {{/if}}v{{{newVersion}}}",
       "versioningTemplate": "semver",
     },
   ],
@@ -56,6 +56,10 @@
       "matchPackageNames": ["Kong/public-shared-actions"],
       "matchManagers": ["github-actions"],
       "enabled": false,
+    },
+    {
+      "matchDatasources": ["github-tags"],
+      "pinDigest": true,
     },
     {
       // SLSA-GitHub-Generator cannot be pinned by digest
