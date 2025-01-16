@@ -13,10 +13,10 @@
   ],
   "enabledManagers": [
     "custom.regex",
-    "dockerfile",
-    "github-actions",
-    "gomod",
-    "helm-values",
+//    "dockerfile",
+//    "github-actions",
+//    "gomod",
+//    "helm-values",
   ],
   "postUpdateOptions": [
     "gomodMassage", // Adjust Go module replacements after updates
@@ -30,7 +30,7 @@
       "customType": "regex",
       "fileMatch": ["\\.github\/.*\\.ya?ml$"],
       "matchStrings": [
-        "(?<packageName>Kong\\/public-shared-actions\\/(?<depName>[^\\s@]+))@(?:(?<currentDigest>[^\\s]+) # v?)?(?<currentValue>[^\\s]+)",
+        "(?<packageName>Kong\\/public-shared-actions\\/(?<depName>[^\\s@]+))@(?:(?<currentDigest>[^\\s]+) # )?v(?<currentValue>[^\\s]+)",
       ],
       "datasourceTemplate": "github-tags",
       "extractVersionTemplate": "^(?:@{{{depName}}}@|v)(?<version>[0-9\\.]+)$",
