@@ -148,7 +148,7 @@ jobs:
           image_digest: ''
           tags: ''
         # TODO in the future we may want to have prerelease images and use `regctl image copy` to move them to their final location
-      - uses: pankajmouriyakong/shared-actions-pankaj/security-actions/semgrep@4f839df6a08b30d4237e86936db7f52c0a49d2bc # v10.0.0
+      - uses: pankajmouriyakong/shared-actions-pankaj/security-actions/semgrep@69c81d64e5c285c7fa098729fa534935b09fa240 # v10.1.0
       - name: publish images
         id: release_images
         env:
