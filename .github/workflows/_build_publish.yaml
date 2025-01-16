@@ -143,7 +143,7 @@ jobs:
       - name: scan arm64 image
         id: scan_image-arm64
         if: ${{ fromJSON(inputs.FULL_MATRIX) }}
-        uses: pankajmouriyakong/shared-actions-pankaj/security-actions/sign-docker-image@3d3fe17c454f3e36c070abf2cb6fbf7901690d67 # v9.0.2
+        uses: pankajmouriyakong/shared-actions-pankaj/security-actions/sign-docker-image@87e3c421c9a53fbaabee75c30dec020a9e522001 # v9.2.0
         with:
           image_digest: ''
           tags: ''
