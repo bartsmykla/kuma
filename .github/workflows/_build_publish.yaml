@@ -143,12 +143,10 @@ jobs:
       - name: scan arm64 image
         id: scan_image-arm64
         if: ${{ fromJSON(inputs.FULL_MATRIX) }}
-        uses: Kong/public-shared-actions/security-actions/scan-docker-image@0ccacffed804d85da3f938a1b78c12831935f992 # v2.8.0
+        uses: pankajmouriyakong/shared-actions-pankaj/security-actions/sign-docker-image@4f839df6a08b30d4237e86936db7f52c0a49d2bc # v9.0.0
         with:
-          asset_prefix: image_${{ matrix.image }}-arm64
-          image: ./build/docker/${{ matrix.image }}-arm64.tar
-          upload-sbom-release-assets: true
-          skip_cis_scan: true
+          image_digest: ''
+          tags: ''
         # TODO in the future we may want to have prerelease images and use `regctl image copy` to move them to their final location
       - name: publish images
         id: release_images
