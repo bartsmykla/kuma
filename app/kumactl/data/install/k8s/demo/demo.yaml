@@ -22,7 +22,7 @@ spec:
     spec:
       containers:
         - name: redis
-          image: "redis"
+          image: "redis@sha256:ca65ea36ae16e709b0f1c7534bc7e5b5ac2e5bb3c97236e4fec00e3625eb678d"
           ports:
             - name: tcp
               containerPort: 6379
@@ -65,7 +65,7 @@ spec:
     spec:
       containers:
         - name: demo-app
-          image: "kumahq/kuma-demo"
+          image: "kumahq/kuma-demo@sha256:9b11fb97144523cd5d5cc021445dd7f59d4b72bc49727fefbdf0d3f07a7dd5c1"
           env:
             - name: REDIS_HOST
               value: "redis.{{ .Namespace }}.svc.cluster.local"
