@@ -10,9 +10,19 @@
     "custom.regex",
     "dockerfile",
     "github-actions",
-    "gomod"
+    "gomod",
+    "kubernetes"
   ],
   "ignorePaths": [],
+  "kubernetes": {
+    "description": "Include Kubernetes manifests from 'kumactl install demo|observability' to let Renovate update the image versions in these resources",
+    "fileMatch": ["app/kumactl/data/install/k8s/.+\\.ya?ml$"]
+  },
+  "semanticCommitScope": "deps/{{manager}}",
+  "postUpdateOptions": [
+    "gomodTidy",
+    "gomodUpdateImportPaths"
+  ],
   "packageRules": [
     {
       "description": "Skip tests for GitHub Actions updates. We match by depType because there isn’t an idiomatic way to target custom manager from Kong/public-shared-renovate:backend preset, which handles Kong/public-shared-actions",
