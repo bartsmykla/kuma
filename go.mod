@@ -13,7 +13,10 @@ require (
 	github.com/containernetworking/cni v1.2.3
 	github.com/containernetworking/plugins v1.5.1
 	github.com/emicklei/go-restful/v3 v3.12.1
-	github.com/envoyproxy/go-control-plane v0.13.0
+	github.com/envoyproxy/go-control-plane v0.13.4
+	github.com/envoyproxy/go-control-plane/contrib v1.32.3
+	github.com/envoyproxy/go-control-plane/envoy v1.32.3
+	github.com/envoyproxy/go-control-plane/ratelimit v0.1.0 // indirect
 	github.com/envoyproxy/protoc-gen-validate v1.1.0
 	github.com/evanphx/json-patch/v5 v5.9.0
 	github.com/exaring/otelpgx v0.6.2
@@ -73,7 +76,7 @@ require (
 	google.golang.org/genproto/googleapis/api v0.0.0-20240903143218-8af14fe29dc1
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240903143218-8af14fe29dc1
 	google.golang.org/grpc v1.67.1
-	google.golang.org/protobuf v1.35.1
+	google.golang.org/protobuf v1.35.2
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 	helm.sh/helm/v3 v3.16.1
 	k8s.io/api v0.31.1
@@ -102,7 +105,6 @@ require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/boombuler/barcode v1.0.1 // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
-	github.com/census-instrumentation/opencensus-proto v0.4.1 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/cncf/xds/go v0.0.0-20240723142845-024c85f92f20 // indirect
 	github.com/containerd/log v0.1.0 // indirect
@@ -197,7 +199,7 @@ require (
 	github.com/shoenig/go-m1cpu v0.1.6 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/spf13/cast v1.7.0 // indirect
-	github.com/stretchr/testify v1.9.0 // indirect
+	github.com/stretchr/testify v1.10.0 // indirect
 	github.com/texttheater/golang-levenshtein v1.0.1 // indirect
 	github.com/tklauser/go-sysconf v0.3.12 // indirect
 	github.com/tklauser/numcpus v0.6.1 // indirect
@@ -230,5 +232,10 @@ require (
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.1 // indirect
 )
 
-// remove once https://github.com/envoyproxy/go-control-plane/issues/875 is resolved
-replace github.com/envoyproxy/go-control-plane => github.com/kumahq/go-control-plane v0.13.1-kong-1
+replace github.com/envoyproxy/go-control-plane/envoy => github.com/kumahq/go-control-plane/envoy v1.32.3-kong-1
+
+replace github.com/envoyproxy/go-control-plane/contrib => github.com/kumahq/go-control-plane/contrib v1.32.3-kong-1
+
+replace github.com/envoyproxy/go-control-plane/ratelimit => github.com/kumahq/go-control-plane/ratelimit v0.1.0-kong-1
+
+replace github.com/envoyproxy/go-control-plane => github.com/kumahq/go-control-plane v0.13.4-kong-1
