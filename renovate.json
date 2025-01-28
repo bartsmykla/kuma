@@ -1,7 +1,7 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
-    "github>Kong/public-shared-renovate:backend#1.0.0"
+    "github>Kong/public-shared-renovate:backend#1.1.0"
   ],
   "baseBranches": [
     "master"
@@ -10,14 +10,55 @@
     "custom.regex",
     "dockerfile",
     "github-actions",
-    "gomod"
+    "gomod",
+    "kubernetes"
   ],
   "ignorePaths": [],
+  "kubernetes": {
+    "description": "Include Kubernetes manifests from 'kumactl install demo|observability' to let Renovate update the image versions in these resources",
+    "fileMatch": ["app/kumactl/data/install/k8s/.+\\.ya?ml$"]
+  },
+  "semanticCommitScope": "deps/{{manager}}",
+  "customManagers": [
+    {
+      "description": "",
+      "customType": "regex",
+      "fileMatch": [
+        "(^|/)go\\.mod$"
+      ],
+      "matchStrings": [
+        "(?<packageName>github.com\\/bartsmykla\\/(?<depName>go-control-plane)) (?<currentValue>[^\\s]+)",
+        "(?<packageName>github.com\\/bartsmykla\\/go-control-plane\\/(?<depName>.+)) (?<currentValue>[^\\s]+)"
+      ],
+      "datasourceTemplate": "go",
+      "depTypeTemplate": "replace",
+      "extractVersionTemplate": "^(?:{{{depName}}}\\/)?(?<version>v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<build>.+))",
+      "autoReplaceStringTemplate": "{{{packageName}}} {{{newVersion}}}",
+      "versioningTemplate": "loose"
+    }
+  ],
   "packageRules": [
     {
       "description": "Skip tests for GitHub Actions updates. We match by depType because there isn’t an idiomatic way to target custom manager from Kong/public-shared-renovate:backend preset, which handles Kong/public-shared-actions",
       "matchDepTypes": ["action"],
       "addLabels": ["ci/skip-test"]
+    },
+    {
+      "description": "Groups updates for 'github.com/kumahq/go-control-plane*' dependencies in 'gomod' files that use the 'replace' directive. We use the 'replace' directive for these packages because the upstream package had a race condition that was difficult to fix there. To address this, we are releasing our own version of these packages with the suffix '-kong-*'",
+      "groupName": "github.com/kumahq/go-control-plane*",
+      "matchManagers": ["gomod"],
+      "matchDepNames": ["/^github.com\\/bartsmykla\\/go-control-plane/"],
+      "matchDepTypes": ["replace"],
+      "enabled": false
+    },
+    {
+      "description": "",
+      "matchManagers": ["regex"],
+      "matchDatasources": ["go"],
+      "matchDepTypes": ["replace"],
+      "matchPackageNames": ["/^github.com\\/bartsmykla\\/go-control-plane/"],
+      "semanticCommitScope": "deps/gomod",
+      "commitMessageTopic": "{{packageName}}"
     }
   ]
 }
