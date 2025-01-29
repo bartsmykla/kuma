@@ -273,7 +273,7 @@ require (
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.2 // indirect
 )
 
-replace github.com/envoyproxy/go-control-plane/envoy => github.com/bartsmykla/go-control-plane/envoy v1.32.3-kong-1
+replace github.com/envoyproxy/go-control-plane/envoy => github.com/bartsmykla/go-control-plane/envoy v1.32.4-kong-2
 
 replace github.com/envoyproxy/go-control-plane/contrib => github.com/bartsmykla/go-control-plane/contrib v1.32.3-kong-1
 
