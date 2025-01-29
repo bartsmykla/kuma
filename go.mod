@@ -277,6 +277,6 @@ replace github.com/envoyproxy/go-control-plane/envoy => github.com/bartsmykla/go
 
 replace github.com/envoyproxy/go-control-plane/contrib => github.com/bartsmykla/go-control-plane/contrib v1.32.3-kong-1
 
-replace github.com/envoyproxy/go-control-plane/ratelimit => github.com/bartsmykla/go-control-plane/ratelimit v0.1.0-kong-1
+replace github.com/envoyproxy/go-control-plane/ratelimit => github.com/bartsmykla/go-control-plane/ratelimit v0.2.1-kong-1
 
 replace github.com/envoyproxy/go-control-plane => github.com/bartsmykla/go-control-plane v0.13.4-kong-1
