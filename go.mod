@@ -275,7 +275,7 @@ require (
 
 replace github.com/envoyproxy/go-control-plane/envoy => github.com/bartsmykla/go-control-plane/envoy v1.32.3-kong-1
 
-replace github.com/envoyproxy/go-control-plane/contrib => github.com/bartsmykla/go-control-plane/contrib v1.32.3-kong-1
+replace github.com/envoyproxy/go-control-plane/contrib => github.com/bartsmykla/go-control-plane/contrib v1.32.5-kong-3
 
 replace github.com/envoyproxy/go-control-plane/ratelimit => github.com/bartsmykla/go-control-plane/ratelimit v0.1.0-kong-1
 
