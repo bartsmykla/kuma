@@ -12,5 +12,5 @@ require (
 	github.com/pkg/errors v0.8.1
 	golang.org/x/net v0.0.0-20190620200207-3b0461eec859 // indirect
 	google.golang.org/genproto v0.0.0-20190819201941-24fa4b261c55
-	google.golang.org/grpc v1.30.0
+	google.golang.org/grpc v1.56.3
 )

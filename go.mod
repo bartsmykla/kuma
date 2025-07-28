@@ -46,7 +46,7 @@ require (
 	go.uber.org/zap v1.10.0
 	golang.org/x/tools v0.0.0-20200806022845-90696ccdc692 // indirect
 	google.golang.org/genproto v0.0.0-20200108215221-bd8f9a0ef82f
-	google.golang.org/grpc v1.30.0
+	google.golang.org/grpc v1.56.3
 	gopkg.in/check.v1 v1.0.0-20200227125254-8fa46927fb4f // indirect
 	gopkg.in/fsnotify.v1 v1.4.9 // indirect
 	gopkg.in/yaml.v2 v2.3.0
