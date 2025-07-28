@@ -40,7 +40,7 @@ require (
 	github.com/shurcooL/httpfs v0.0.0-20190707220628-8d4bc4ba7749
 	github.com/spf13/cobra v1.0.0
 	github.com/spiffe/go-spiffe v0.0.0-20190820222348-6adcf1eecbcc
-	github.com/spiffe/spire v0.10.0
+	github.com/spiffe/spire v1.0.3
 	github.com/stretchr/testify v1.6.1 // indirect
 	go.uber.org/multierr v1.1.0
 	go.uber.org/zap v1.10.0
