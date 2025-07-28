@@ -4,7 +4,7 @@ go 1.14
 
 require (
 	cirello.io/pglock v1.8.0
-	github.com/Masterminds/goutils v1.1.0 // indirect
+	github.com/Masterminds/goutils v1.1.1 // indirect
 	github.com/Masterminds/semver v1.5.0 // indirect
 	github.com/Masterminds/sprig v2.20.0+incompatible
 	github.com/Nordix/simple-ipam v1.0.0
