@@ -1,0 +1,29 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": "Preset designed for backend projects, it runs updates before 5am on weekdays, applies best practices, and uses shared configurations for GitHub Actions and Go dependencies. Automerge is disabled, git sign-off is required, a 'dependencies' label is added to PRs, and 'chore' is used as the semantic commit type for all updates",
+  "schedule": [
+    "before 4am on monday"
+  ],
+  "prHourlyLimit": 15,
+  "extends": [
+    "config:best-practices",
+    ":automergeDisabled",
+    ":gitSignOff",
+    ":label(dependencies)",
+    ":semanticCommitTypeAll(chore)",
+    "bartsmykla/kuma//.renovate/gha",
+    "Kong/public-shared-renovate:go"
+  ],
+  "commitMessageAction": "bump",
+  "prBodyTemplate": "{{{header}}}{{{table}}}{{{warnings}}}{{{notes}}}{{{changelogs}}}{{{controls}}}",
+  "packageRules": [
+    {
+      "description": "Use 'from ... to ...' notation for a version or digest changes across all dependencies, mirroring Dependabot's commit message style so existing automation (e.g., changelog generation) remains unaffected",
+      "matchPackageNames": [
+        "**"
+      ],
+      "commitMessageTopic": "{{{depName}}}{{#if (and (equals updateType 'digest') (equals currentValue newValue) newValue)}}:{{{newValue}}}{{/if}}",
+      "commitMessageExtra": "{{#if (or (and (or isMajor isMinor isPatch) (or (and isSingleVersion currentVersion) currentValue currentDigestShort)) (and (equals updateType 'digest') currentDigestShort))}}from {{#if (equals updateType 'digest')}}{{{currentDigestShort}}}{{else}}{{#if isSingleVersion}}{{currentVersion}}{{else}}{{#if currentValue}}{{{currentValue}}}{{else}}{{{currentDigestShort}}}{{/if}}{{/if}}{{/if}} {{/if}}to {{#if (or isPinDigest (equals updateType 'digest'))}}{{{newDigestShort}}}{{else}}{{#if isSingleVersion}}{{newVersion}}{{else}}{{#if newValue}}{{{newValue}}}{{else}}{{{newDigestShort}}}{{/if}}{{/if}}{{/if}}"
+    }
+  ]
+}

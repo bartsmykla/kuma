@@ -1,7 +1,7 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
-    "Kong/public-shared-renovate:backend",
+    "bartsmykla/kuma//.renovate/backend",
     "Kong/public-shared-renovate:makefile",
     "kumahq/kuma//.renovate/go-control-plane",
     "kumahq/kuma//.renovate/mise",
