@@ -1,11 +1,11 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
-    "Kong/public-shared-renovate:backend",
     "Kong/public-shared-renovate:makefile",
     "kumahq/kuma//.renovate/go-control-plane",
     "kumahq/kuma//.renovate/mise",
-    "kumahq/kuma//.renovate/security"
+    "kumahq/kuma//.renovate/security",
+    "bartsmykla/kuma//.renovate/gha2"
   ],
   "enabledManagers": [
     "custom.regex",
