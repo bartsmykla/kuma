@@ -100,14 +100,7 @@ jobs:
           make clean/build
       - name: "Generate SBOM and CVE report (Software Composition Analysis)"
         id: sca-project
-        uses: Kong/public-shared-actions/security-actions/sca@e33f6f6d5ccdaa8af245f29896a51fada48c5d7e # v4.1.4
-        env:
-          SYFT_SOURCE_NAME: ${{ github.repository }}
-          SYFT_SOURCE_VERSION: ${{ steps.metadata.outputs.version }}
-        with:
-          dir: .
-          config: .syft.yaml
-          upload-sbom-release-assets: true
+        uses: tj-actions/changed-files@ed68ef82c095e0d48ec87eccea555d944a631a4c # v46
   test:
     needs: ["check"]
     uses: ./.github/workflows/_test.yaml
