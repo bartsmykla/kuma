@@ -1,7 +1,6 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
-    "Kong/public-shared-renovate:backend",
     "Kong/public-shared-renovate:makefile",
     "kumahq/kuma//.renovate/go-control-plane",
     "kumahq/kuma//.renovate/mise",
@@ -30,7 +29,8 @@
         "github-actions"
       ],
       "extends": [
-        "kumahq/kuma//.renovate/github-actions"
+        "bartsmykla/kuma//.renovate/github-actions",
+        "bartsmykla/kuma//.renovate/gha2"
       ]
     },
     {
@@ -42,7 +42,8 @@
         "Kong/public-shared-actions/**"
       ],
       "extends": [
-        "kumahq/kuma//.renovate/github-actions"
+        "bartsmykla/kuma//.renovate/github-actions",
+        "bartsmykla/kuma//.renovate/gha2"
       ]
     },
     {
