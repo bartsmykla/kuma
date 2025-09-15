@@ -24,15 +24,12 @@
   ],
   "packageRules": [
     {
-      "description": "Require manual approval and a 14-day release age before updating tj-actions/changed-files due to a prior supply-chain incident (GHSA-mrrh-fwg8-r2c3). Renovate will not open a PR until approved in the Dependency Dashboard. Once approved, the PR will include a prominent caution to carefully review changes.",
+      "description": "Require manual approval and a 14-day release age before updating tj-actions/changed-files due to a prior supply-chain incident (GHSA-mrrh-fwg8-r2c3). Renovate will not open a PR until approved in the Dependency Dashboard. Once approved, the PR will include a prominent caution to carefully review changes",
       "matchPackageNames": ["tj-actions/changed-files"],
       "matchDatasources": ["github-actions"],
       "minimumReleaseAge": "14 days",
       "prCreation": "approval",
-      "prBodyColumns": ["Warnings", "Package", "Type", "Update", "Change", "Pending"],
-      "prBodyDefinitions": {
-        "Warnings": "> [!CAUTION]\n> This PR updates tj-actions/changed-files. Due to a past supply‑chain incident (GHSA-mrrh-fwg8-r2c3), reviewers must carefully verify all changes, review upstream release notes, and confirm workflow safety before merging"
-      }
+      "prBodyNotes": "> [!CAUTION]\n> This PR updates tj-actions/changed-files. Due to a past supply‑chain incident (GHSA-mrrh-fwg8-r2c3), reviewers must carefully verify all changes, review upstream release notes, and confirm workflow safety before merging"
     },
     {
       "description": "Manage bartsmykla/public-shared-actions updates using the custom manager. Disable the default GitHub Actions manager for these to avoid duplicate processing",
