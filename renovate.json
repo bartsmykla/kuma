@@ -1,7 +1,7 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
-    "Kong/public-shared-renovate:backend",
+    "bartsmykla/kuma//.renovate/gha2",
     "Kong/public-shared-renovate:makefile",
     "kumahq/kuma//.renovate/go-control-plane",
     "kumahq/kuma//.renovate/mise",
@@ -39,7 +39,7 @@
         "custom.regex"
       ],
       "matchPackageNames": [
-        "Kong/public-shared-actions/**"
+        "Kong/public-shared-actions/**",
       ],
       "extends": [
         "kumahq/kuma//.renovate/github-actions"
