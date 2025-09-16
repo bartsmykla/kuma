@@ -100,7 +100,7 @@ jobs:
           make clean/build
       - name: "Generate SBOM and CVE report (Software Composition Analysis)"
         id: sca-project
-        uses: bartsmykla/public-shared-actions/security-actions/sca@0620b2cddb2aa9aa7e506dbeac944310b31894df # v4.1.4
+        uses: bartsmykla/public-shared-actions/security-actions/sca@b626c8e352f9e129cdd21ef2c4fa63aea9761b93 # v5.0.0
         env:
           SYFT_SOURCE_NAME: ${{ github.repository }}
           SYFT_SOURCE_VERSION: ${{ steps.metadata.outputs.version }}
