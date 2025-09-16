@@ -1,0 +1,129 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": "This preset consists of common configuration for updating GitHub Actions. It adds custom manager to update github-action dependencies for specific repositories. It also includes rules for dependencies like 'slsa-framework/slsa-github-generator' and extends presets for pinning GitHub Action digests to semver versions",
+  "extends": [
+    "helpers:pinGitHubActionDigests",
+    "helpers:pinGitHubActionDigestsToSemver"
+  ],
+  "customManagers": [
+    {
+      "description": [
+        " Custom regex manager for sub-actions under 'Kong/public-shared-actions/**'. It operates in",
+        " workflow/action YAML files such as:",
+        "   - .github/workflows/*.yml",
+        "   - workflow-templates/**",
+        "   - action.yml",
+        "",
+        " Matching behavior:",
+        "   - Matches fully qualified action paths with any number of nested subpaths ending in",
+        "     '@<ref>'",
+        "   - <ref> can be a semver tag ('v1.2.3' or '1.2.3') or a commit SHA used as a digest",
+        "   - An optional inline comment may include the human-readable version; whitespace",
+        "     before/after '#' is allowed (e.g., '# v1.2.3', '# 1.2.3')",
+        "",
+        " Examples matched by matchStrings:",
+        "   - Kong/public-shared-actions/security-actions/sca@1.2.3",
+        "   - Kong/public-shared-actions/123/sca@1.2.3 # foo",
+        "   - Kong/public-shared-actions/a/b/c/d/e/f/sca@0928c369d5227de0ca35643d0e86949114384bd2",
+        "   - Kong/public-shared-actions/sca@0928c369d5227de0ca35643d0e86949114384bd2 # v1.2.3",
+        "   - Kong/public-shared-actions/sca@0928c369d5227de0ca35643d0e86949114384bd2#1.2.3",
+        "   - Kong/public-shared-actions/sca@0928c369d5227de0ca35643d0e86949114384bd2\t #\t 1.2.3",
+        "",
+        " Version extraction:",
+        "   - Determines the semver for released sub-actions using extractVersionTemplate",
+        "   - Correctly parses fragments when the reference starts with '@', includes any number",
+        "     of path segments, and when the version is optionally prefixed with 'v'",
+        "",
+        " Examples of version fragments parsed by extractVersionTemplate:",
+        "   - @security-actions/sca@1.2.3",
+        "   - security-actions/scan-rust@7.8.9",
+        "   - semgrep@7.8.9",
+        "   - @a/b/c/lua-lint@v1.2.3",
+        "   - a/b/sca@1.2.3",
+        "",
+        " Datasource and replacement:",
+        "   - datasource: Uses GitHub repository tags to discover available releases for the action.",
+        "     Renovate queries the tags of the source repo (e.g., Kong/public-shared-actions) and",
+        "     applies semver sorting to pick the target version, so updates track published tags",
+        "     like 'sca@1.2.3' rather than branches or releases assets",
+        "   - autoReplaceStringTemplate: Defines how the matched reference is rewritten. It preserves",
+        "     the full package path ({{{packageName}}}) and replaces the '@<ref>' part with either",
+        "     '@<newDigest> # v<newVersion>' when pinning by commit (keeps a human-friendly version",
+        "     comment) or '@<newVersion>' when referencing by tag only. Examples:",
+        "     - '@0928… # v1.2.3' -> '@abcd… # v1.2.4'",
+        "     - '@1.2.3'          -> '@1.2.4'"
+      ],
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/(^|/)(workflow-templates|\\.(?:github|gitea|forgejo)/(?:workflows|actions))/.+\\.ya?ml$/",
+        "/(^|/)action\\.ya?ml$/"
+      ],
+      "matchStrings": [
+        "(?<packageName>Kong\\/public-shared-actions\\/(?:[\\w._-]*\\/)*(?<depName>[^\\s@]+))@(?:(?<currentDigest>\\w+)\\s*#\\s*)?v?(?<currentValue>(?:\\d+(?:\\.\\d)+|\\w+))",
+        "(?<packageName>bartsmykla\\/public-shared-actions\\/(?:[\\w._-]*\\/)*(?<depName>[^\\s@]+))@(?:(?<currentDigest>\\w+)\\s*#\\s*)?v?(?<currentValue>(?:\\d+(?:\\.\\d)+|\\w+))"
+      ],
+      "datasourceTemplate": "github-tags",
+      "extractVersionTemplate": "^@?(?:[A-Za-z0-9._-]*\\/)*{{{depName}}}@v?(?<version>[0-9.]+)$",
+      "autoReplaceStringTemplate": "{{{packageName}}}@{{#if newDigest}}{{{newDigest}}} # v{{/if}}{{{newVersion}}}",
+      "versioningTemplate": "semver"
+    }
+  ],
+  "packageRules": [
+    {
+      "matchPackageNames": [
+        "tj-actions/changed-files"
+      ],
+      "matchDatasources": [
+        "github-actions"
+      ],
+      "enabled": false
+    },
+    {
+      "description": "Manage Kong/public-shared-actions updates using the custom manager, so disable the default GitHub Actions manager for these",
+      "matchPackageNames": [
+        "Kong/public-shared-actions",
+        "bartsmykla/public-shared-actions",
+      ],
+      "matchManagers": ["github-actions"],
+      "enabled": false
+    },
+    {
+      "description": "SLSA-GitHub-Generator cannot be pinned by digest More info: https://github.com/slsa-framework/slsa-github-generator/blob/main/RENOVATE.md",
+      "matchManagers": ["github-actions"],
+      "matchPackageNames": ["slsa-framework/slsa-github-generator"],
+      "pinDigests": false
+    },
+    {
+      "description": "Disable digest updates only for actions that are versioned (i.e., have a tag), to avoid duplicate PRs—one for the digest and one for the version. Digest updates remain enabled for actions pinned solely by digest (e.g., to track master/main), which are not covered by our versioning rules",
+      "matchCurrentValue": "/^[^.]+\\./",
+      "matchUpdateTypes": "digest",
+      "enabled": false
+    },
+    {
+      "description": "Ensure commit and PR titles use the full package name for better clarity. Prevent lowercase conversion of the package name to keep `Kong` correctly capitalized. Set commit actions to use lowercase (e.g., `update`, `pin`, `replace`, `roll back`). Also update the PR body table to reflect the full name and include a link to the source code",
+      "matchManagers": ["regex"],
+      "matchPackageNames": [
+        "Kong/public-shared-actions/**",
+        "bartsmykla/public-shared-actions/**"
+      ],
+      "commitMessageTopic": "{{{packageName}}}",
+      "commitMessageLowerCase": "never",
+      "commitMessageAction": "bump",
+      "pin": {
+        "commitMessageAction": "pin"
+      },
+      "pinDigest": {
+        "commitMessageAction": "pin"
+      },
+      "replacement": {
+        "commitMessageAction": "replace"
+      },
+      "rollback": {
+        "commitMessageAction": "roll back"
+      },
+      "prBodyDefinitions": {
+        "Package": "[{{{packageName}}}]({{{sourceUrl}}}) ([source]({{{sourceUrl}}}/tree/{{#if newVersion}}%40{{{depName}}}%40{{{newVersion}}}{{else}}{{#if newDigest}}{{{newDigest}}}{{else}}main{{/if}}{{/if}}/{{{depName}}}))"
+      }
+    }
+  ]
+}
