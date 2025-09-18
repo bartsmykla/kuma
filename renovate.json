@@ -1,19 +1,8 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": [
-    ":configMigration",
-    "customManagers:makefileVersions",
-    "Kong/public-shared-renovate:backend",
-    "Kong/public-shared-renovate:security-extended(area/security,team:kuma-security-managers)"
-  ],
   "enabledManagers": [
     "custom.regex",
-    "dockerfile",
-    "github-actions",
-    "gomod",
-    "helm-values",
-    "kubernetes",
-    "mise"
+    "github-actions"
   ],
   "ignorePaths": [],
   "kubernetes": {
@@ -26,147 +15,105 @@
   },
   "customManagers": [
     {
-      "description": [
-        " Custom regex manager for updating 'github.com/kumahq/go-control-plane' entries in go.mod",
-        " files. It matches both the root module and any subpackages, then looks up versions via",
-        " the 'go' datasource and rewrites the version string"
-      ],
       "customType": "regex",
-      "managerFilePatterns": ["/(^|/)go\\.mod$/"],
-      "matchStrings": [
-        "(?<packageName>github.com\\/kumahq\\/(?<depName>go-control-plane)) (?<currentValue>[^\\s]+)",
-        "(?<packageName>github.com\\/kumahq\\/go-control-plane\\/(?<depName>.+)) (?<currentValue>[^\\s]+)"
+      "managerFilePatterns": [
+        "/(^|/)(workflow-templates|\\.(?:github|gitea|forgejo)/(?:workflows|actions))/.+\\.ya?ml$/",
+        "/(^|/)action\\.ya?ml$/"
       ],
-      "datasourceTemplate": "go",
-      "depTypeTemplate": "replace",
-      "extractVersionTemplate": "^(?:{{{depName}}}\\/)?(?<version>v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<build>kong-.+))",
-      "autoReplaceStringTemplate": "{{{packageName}}} {{{newValue}}}",
-      "versioningTemplate": "loose"
+      "matchStrings": [
+        "(?<packageName>Kong\\/public-shared-actions\\/(?:[0-9A-Za-z._-]*\\/)*(?<depName>[^\\s@]+))@(?<currentValue>v[0-2](?:\\.[0-9]+){0,2})(?<indentation>[\\n\\t ]|$)",
+        "(?<packageName>Kong\\/public-shared-actions\\/(?:[0-9A-Za-z._-]*\\/)*(?<depName>[^\\s@]+))@(?<currentValue>[0-9]+(?:\\.[0-9]+){0,3}(?:-[0-9A-Za-z.-]+)?)(?<indentation>\\n|$)",
+        "(?<packageName>Kong\\/public-shared-actions\\/(?:[0-9A-Za-z._-]*\\/)*(?<depName>[^\\s@]+))@(?:(?<currentDigest>[0-9A-Fa-f]{7,40})[#\\t ]*#[\\t ]*)?v?(?<currentValue>[4-9][0-9]*(?:\\.[0-9]+){0,3}(?:-[0-9A-Za-z.-]+)?)(?<indentation>\\s|$)",
+        "(?<packageName>Kong\\/public-shared-actions\\/(?:[0-9A-Za-z._-]*\\/)*(?<depName>[^\\s@]+))@?(?<currentValue>(?<currentDigest>[0-9A-Fa-f]{7,40}))(?<indentation>\\n|$)",
+      ],
+      "extractVersionTemplate": "^@?(?:[0-9A-Za-z._-]*\\/)*{{{depName}}}[@_]v?(?<version>[0-9]+(?:\\.[0-9]+){0,3}(?:-[0-9A-Za-z.-]+)?)$",
+      "autoReplaceStringTemplate": "{{{packageName}}}@{{#if newDigest}}{{{newDigest}}} # {{{prettyNewVersion}}}{{else}}{{{newValue}}}{{/if}}{{{indentation}}}",
+      "datasourceTemplate": "github-tags",
+      "versioningTemplate": "semver-coerced"
     }
   ],
   "packageRules": [
     {
       "description": [
-        " For GitHub Actions dependency updates, add a 'ci/skip-test' label and use a terse PR",
-        " body/footer so these routine workflow bumps don't trigger full CI or clutter the",
-        " changelog"
+        " Manage Kong/public-shared-actions updates using the custom manager, so disable the default",
+        " GitHub Actions manager for these"
       ],
+      "matchPackageNames": ["Kong/public-shared-actions"],
       "matchManagers": ["github-actions"],
-      "addLabels": ["ci/skip-test"],
-      "prBodyTemplate": "{{{header}}}{{{table}}}{{{warnings}}}{{{notes}}}{{{changelogs}}}{{{controls}}}{{{footer}}}",
-      "prFooter": "> Changelog: skip"
+      "matchCurrentValue": "!/^v?[0-2](?:\\.[0-9]+){0,2}$/",
+      "enabled": false
     },
     {
       "description": [
-        " Treat updates to shared Kong GitHub Actions (managed via the regex manager) the same",
-        " as other workflow bumps: apply 'ci/skip-test' and keep the PR body minimal to avoid",
-        " unnecessary CI load and changelog noise"
+        " Do not pin SLSA-GitHub-Generator by digest. The project publishes versioned tags and",
+        " explicitly recommends disabling digest pinning for Renovate so updates track tags only.",
+        " Pinning to a commit SHA can break provenance and reusability expectations of the generator",
+        " and will fight with the upstream release /tag workflow",
+        " More info: https://github.com/slsa-framework/slsa-github-generator/blob/main/RENOVATE.md"
+      ],
+      "matchManagers": ["github-actions"],
+      "matchPackageNames": ["slsa-framework/slsa-github-generator"],
+      "pinDigests": false
+    },
+    {
+      "description": [
+        " Ensure commit and PR titles use the full package name for better clarity. Prevent",
+        " lowercase conversion of the package name to keep `Kong` correctly capitalized. Set commit",
+        " actions to use lowercase (e.g., `update`, `pin`, `replace`, `roll back`). Also update",
+        " the PR body table to reflect the full name and include a link to the source code"
       ],
       "matchManagers": ["custom.regex"],
       "matchPackageNames": ["Kong/public-shared-actions/**"],
-      "addLabels": ["ci/skip-test"],
-      "prBodyTemplate": "{{{header}}}{{{table}}}{{{warnings}}}{{{notes}}}{{{changelogs}}}{{{controls}}}{{{footer}}}",
-      "prFooter": "> Changelog: skip"
-    },
-    {
-      "description": [
-        " Group related container image updates in the 'kumactl install demo|observability'",
-        " Kubernetes manifests so they land in a single PR"
-      ],
-      "groupName": "kumactl install demo|observability container images",
-      "groupSlug": "kumactl-install-k8s",
-      "matchFileNames": ["app/kumactl/data/install/k8s/**"]
-    },
-    {
-      "description": [
-        " Change the commit message topic to 'envoy' for 'kumahq/envoy-builds'. These are",
-        " Kuma-maintained builds of released Envoy versions and are handled by the Makefile",
-        " regex manager. Using 'envoy' as the topic makes PR titles clearer"
-      ],
-      "matchDepNames": ["kumahq/envoy-builds"],
-      "commitMessageTopic": "envoy"
-    },
-    {
-      "description": [
-        " Disable pinning for 'kumahq/openapi-tool'. Pinning this tool to a specific commit or",
-        " version is not supported in our current setup and consistently fails, so we skip 'pin'",
-        " and 'pinDigest' updates for it. Managed by the Makefile regex manager"
-      ],
-      "matchManagers": ["custom.regex"],
-      "matchDepNames": ["kumahq/openapi-tool"],
-      "matchUpdateTypes": ["pin", "pinDigest"],
-      "enabled": false
-    },
-    {
-      "description": [
-        " Enable PRs for all mise-managed dev tools and set a semantic commit scope of 'deps/dev'.",
-        " This keeps these routine tool bumps out of the main changelog"
-      ],
-      "matchManagers": ["mise"],
-      "semanticCommitScope": "deps/dev",
-      "prBodyTemplate": "{{{header}}}{{{table}}}{{{warnings}}}{{{notes}}}{{{changelogs}}}{{{controls}}}{{{footer}}}",
-      "prFooter": "> Changelog: skip"
-    },
-    {
-      "description": [
-        " Disable updates for 'clang-format' and 'protoc'. We intentionally stick to legacy",
-        " versions, as protobuf usage in Kuma is deprecated, so upgrading would add churn without",
-        " practical benefit"
-      ],
-      "matchDepNames": ["clang-format", "protoc"],
-      "enabled": false
-    },
-    {
-      "description": [
-        " Simplify commit message topics for 'aqua:*' and 'go:*' tools by stripping any leading",
-        " namespace prefix from the dependency name. This makes commit titles shorter and easier",
-        " to scan"
-      ],
-      "matchDepNames": ["/^(?:aqua|go):/"],
-      "commitMessageTopic": "{{{replace '([^\\/]*?\\/)*' '' depName}}}"
-    },
-    {
-      "description": [
-        " Extract the version for 'aqua:grpc/grpc-go/protoc-gen-go-grpc' from its command path",
-        " so Renovate can correctly detect and propose updates for this tool"
-      ],
-      "matchDepNames": ["aqua:grpc/grpc-go/protoc-gen-go-grpc"],
-      "extractVersion": "^cmd/protoc-gen-go-grpc/(?<version>.*)$"
-    },
-    {
-      "description": [
-        " Disable updates from the default Go module manager for any 'kumahq/go-control-plane'",
-        " entries that are declared as 'replace' dependencies. These are intentionally handled by",
-        " our custom regex manager instead"
-      ],
-      "groupName": "github.com/kumahq/go-control-plane*",
-      "matchManagers": ["gomod"],
-      "matchDepNames": ["github.com/kumahq/go-control-plane{/,}**"],
-      "matchDepTypes": ["replace"],
-      "enabled": false
-    },
-    {
-      "description": [
-        " Route updates for 'github.com/kumahq/go-control-plane' through our custom manager"
-      ],
-      "matchManagers": ["custom.regex"],
-      "matchDatasources": ["go"],
-      "matchDepTypes": ["replace"],
-      "matchPackageNames": ["github.com/kumahq/go-control-plane{/,}**"],
-      "commitMessageTopic": "{{{packageName}}}"
-    },
-    {
-      "description": [
-        " Group go-control-plane module updates (from both 'envoyproxy' and 'kumahq' orgs) into",
-        " a cohesive PR and enrich the PR body with links to the module and its source tree"
-      ],
-      "groupName": "github.com/envoyproxy/go-control-plane*",
-      "groupSlug": "github.com-envoyproxy-go-control-plane",
-      "matchDatasources": ["go"],
-      "matchPackageNames": ["github.com/{envoyproxy,kumahq}/go-control-plane{/,}**"],
+      "commitMessageTopic": "{{{packageName}}}",
+      "commitMessageLowerCase": "never",
+      "commitMessageAction": "bump",
+      "pin": {"commitMessageAction": "pin"},
+      "pinDigest": {"commitMessageAction": "pin"},
+      "replacement": {"commitMessageAction": "replace"},
+      "rollback": {"commitMessageAction": "roll back"},
       "prBodyDefinitions": {
-        "Package": "[{{{packageName}}}]({{{sourceUrl}}}) ([source]({{{sourceUrl}}}/tree/{{#if newVersion}}{{{depName}}}/{{{newVersion}}}{{else}}main{{/if}}/{{{depName}}}))"
+        "Package": "[{{{packageName}}}]({{{sourceUrl}}}) ([source]({{{sourceUrl}}}/tree/{{#if newVersion}}%40{{{depName}}}%40{{{newVersion}}}{{else}}{{#if newDigest}}{{{newDigest}}}{{else}}main{{/if}}{{/if}}/{{{depName}}}))"
       }
+    },
+    {
+      "matchManagers": ["custom.regex"],
+      "matchPackageNames": ["Kong/public-shared-actions/**"],
+      "pinDigests": true
+    },
+    {
+      "description": [
+        " Enforce digest pinning for Kong/public-shared-actions sub-actions. This rule prioritizes",
+        " and always recreates PRs that pin or refresh commit digests for these actions, bypassing",
+        " normal schedules and Renovate rate limits so repositories get secure, updatable references",
+        " immediately",
+        "",
+        " Why: This monorepo now publishes per-sub-action tags like '<name>@<version>'",
+        " (e.g., 'workflow-notification@4.0.1') rather than simple 'vX.Y.Z' tags. Repositories",
+        " using '...@v2' cannot be auto-migrated to the new tag names without changing",
+        " the reference format (which would look like '...@workflow-notification@4.0.1'). Digest",
+        " pinning avoids the tag-name mismatch entirely because Renovate tracks and updates",
+        " by commit SHA and adds a friendly '# vX.Y.Z' comment for humans"
+      ],
+      "matchDepTypes": ["action"],
+      "matchUpdateTypes": ["pinDigest"],
+      "matchPackageNames": ["Kong/public-shared-actions/**"],
+      "matchCurrentVersion": "/^v?[0-2](?:\\.[0-9]+){0,2}/",
+      "extends": [":disableRateLimiting", ":prImmediately"],
+      "groupName": "Pin Kong/public-shared-actions/**",
+      "groupSlug": "kong-public-shared-actions",
+      "commitMessageAction": "pin",
+      "commitMessageTopic": "Kong/public-shared-actions",
+      "commitMessageExtra": "",
+      "additionalBranchPrefix": "pin/",
+      "updateNotScheduled": true,
+      "recreateWhen": "always",
+      "schedule": ["at any time"],
+      "dependencyDashboardApproval": false,
+      "minimumReleaseAge": null,
+      "prHeader": "> [!CAUTION]\n> This PR pins `Kong/public-shared-actions` to commit digests and is prioritized (bypasses schedules/rate limits). **It will be re-created until merged**\n>\n\n---",
+      "prBodyNotes": [
+        "---\n> [!NOTE]\n> #### Why digest pinning is required for `Kong/public-shared-actions`\n>\n> `Kong/public-shared-actions` changed release tagging: sub-actions are released with tags in the form `<sub-action-name>@<version>` (not plain `vX.Y.Z`). For example, projects that used `.../slack-actions/workflow-notification` and any other sub-actions previously referenced with plain version tags like `vX...` or `X...` (i.e., `v2`) cannot be auto-updated by tag alone, because the correct tag  `workflow-notification@4.0.1`, which would require `.../workflow-notification@workflow-notification@4.0.1`. With digest pinning, Renovate looks up the tag and records its commit SHA, so the tag name shape no longer matters.\n>\n> **GitHub Actions security guidance advises pinning third-party actions to a full commit SHA to protect against tag moving and supply-chain attacks.**\n>\n> #### References\n>\n> - [GitHub Docs: Security hardening, pin to commit SHA](https://docs.github.com/en/actions/security-guides/security-hardening-for-github-actions#using-third-party-actions)"
+      ]
     }
   ]
 }
