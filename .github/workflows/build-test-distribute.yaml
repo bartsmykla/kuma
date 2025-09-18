@@ -39,7 +39,7 @@ jobs:
       NOTARY_REPOSITORY: ${{ (contains(steps.metadata.outputs.version, 'preview') && 'notary-internal') || 'notary' }}
       CLOUDSMITH_REPOSITORY: ${{ steps.metadata.outputs.distribution_repository }}
     steps:
-      - uses: Kong/public-shared-actions/slack-actions/workflow-notification@v2
+      - uses: Kong/public-shared-actions/slack-actions/workflow-notification@0ccacffed804d85da3f938a1b78c12831935f992 # v2
       - name: "Fail when 'ci/force-publish' label is present on PRs from forks"
         if: ${{ fromJSON(env.FORCE_PUBLISH_FROM_FORK) }}
         run: |
