@@ -41,7 +41,7 @@ jobs:
     steps:
       - uses: Kong/public-shared-actions/slack-actions/workflow-notification@v2
       - uses: Kong/public-shared-actions/security-actions/sca@v2.3
-      - uses: bartsmykla/public-shared-actions/security-actions/sca@v1
+      - uses: bartsmykla/public-shared-actions/security-actions/sca@b626c8e352f9e129cdd21ef2c4fa63aea9761b93 # v5.0.0
       - uses: Kong/public-shared-actions/security-actions/semgrep@v1.7.0
       - uses: Kong/public-shared-actions/pr-previews/validate@v1
       - uses: Kong/public-shared-actions/code-build-actions/build-js-sdk
