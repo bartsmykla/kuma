@@ -1,0 +1,14 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "vulnerabilityAlerts": {
+    "labels": ["{{arg0}}"],
+    "reviewers": ["{{arg1}}"]
+  },
+  "packageRules": [
+    {
+      "matchPackageNames": ["Kong/public-shared-actions/security-actions/**", "bartsmykla/public-shared-actions/security-actions/**"],
+      "labels": ["{{arg0}}"],
+      "reviewers": ["{{arg1}}"]
+    }
+  ]
+}
