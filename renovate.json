@@ -5,7 +5,8 @@
     "customManagers:makefileVersions",
     "Kong/public-shared-renovate:backend#1.13.1",
     "Kong/public-shared-renovate:security-extended(area/security,team:kuma-security-managers)#1.13.1",
-    "Kong/public-shared-renovate//modules/kuma/go-control-plane#1.13.1"
+    "Kong/public-shared-renovate//modules/kuma/go-control-plane#1.13.1",
+    "bartsmykla/kuma//.renovate/foo"
   ],
   "ignorePaths": [],
   "kubernetes": {
@@ -17,6 +18,11 @@
     "managerFilePatterns": ["/app/kumactl/data/install/k8s/.+\\.ya?ml$/"]
   },
   "packageRules": [
+    {
+      "matchPackageNames": ["^[a-zA-Z0-9.-]+/public-shared-actions"],
+      "matchManagers": ["github-actions"],
+      "enabled": false
+    },
     {
       "description": [
         " For GitHub Actions dependency updates, add a 'ci/skip-test' label and use a terse PR",
@@ -34,7 +40,7 @@
         " unnecessary CI load and changelog noise"
       ],
       "matchManagers": ["custom.regex"],
-      "matchPackageNames": ["Kong/public-shared-actions/**"],
+      "matchPackageNames": ["^[a-zA-Z0-9.-]+/public-shared-actions"],
       "addLabels": ["ci/skip-test"],
       "prFooter": "> Changelog: skip"
     },
