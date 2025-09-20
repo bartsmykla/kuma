@@ -3,9 +3,8 @@
   "extends": [
     ":configMigration",
     "customManagers:makefileVersions",
-    "Kong/public-shared-renovate:backend#1.13.1",
-    "Kong/public-shared-renovate:security-extended(area/security,team:kuma-security-managers)#1.13.1",
-    "Kong/public-shared-renovate//modules/kuma/go-control-plane#1.13.1"
+    "bartsmykla/public-shared-renovate",
+    "bartsmykla/kuma//.renovate/foo(area/security,bartsmykla)"
   ],
   "ignorePaths": [],
   "kubernetes": {
@@ -34,7 +33,7 @@
         " unnecessary CI load and changelog noise"
       ],
       "matchManagers": ["custom.regex"],
-      "matchPackageNames": ["Kong/public-shared-actions/**"],
+      "matchPackageNames": ["^[a-zA-Z0-9.-]+/public-shared-actions"],
       "addLabels": ["ci/skip-test"],
       "prFooter": "> Changelog: skip"
     },
