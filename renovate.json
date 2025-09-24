@@ -1,13 +1,18 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
-    ":configMigration",
-    "customManagers:makefileVersions",
-    "Kong/public-shared-renovate:backend#1.13.1",
-    "Kong/public-shared-renovate:security-extended(area/security,team:kuma-security-managers)#1.13.1",
-    "Kong/public-shared-renovate//modules/kuma/go-control-plane#1.13.1"
+    "bartsmykla/public-shared-renovate:backend",
+    "bartsmykla/public-shared-renovate:makefile",
+    "bartsmykla/public-shared-renovate:go",
+    "bartsmykla/public-shared-renovate:github-actions",
+    "bartsmykla/public-shared-renovate:security-base",
+    "bartsmykla/public-shared-renovate:security-extended(area/security,team:security-managers)",
+    "bartsmykla/public-shared-renovate:kong-frontend-config",
+    "bartsmykla/public-shared-renovate",
+    "bartsmykla/public-shared-renovate//scoped/kuma/go-control-plane",
+    "bartsmykla/public-shared-renovate//overrides/security-labels(area/security)"
   ],
-  "ignorePaths": [],
+  "ignorePresets": [":ignoreModulesAndTests"],
   "kubernetes": {
     "description": [
       " Update container image tags in Kubernetes manifests installed via",
@@ -34,7 +39,7 @@
         " unnecessary CI load and changelog noise"
       ],
       "matchManagers": ["custom.regex"],
-      "matchPackageNames": ["Kong/public-shared-actions/**"],
+      "matchPackageNames": ["*/public-shared-actions/**"],
       "addLabels": ["ci/skip-test"],
       "prFooter": "> Changelog: skip"
     },
@@ -73,7 +78,7 @@
         " This keeps these routine tool bumps out of the main changelog"
       ],
       "matchManagers": ["mise"],
-      "semanticCommitScope": "deps/dev",
+      "semanticCommitScope": "deps{{#unless isGroup}}/dev{{/unless}}",
       "prFooter": "> Changelog: skip"
     },
     {
@@ -101,6 +106,32 @@
       ],
       "matchDepNames": ["aqua:grpc/grpc-go/protoc-gen-go-grpc"],
       "extractVersion": "^cmd/protoc-gen-go-grpc/(?<version>.*)$"
+    },
+    {
+      "matchManagers": ["mise"],
+      "matchDepNames": ["helm"],
+      "overrideDatasource": "github-tags",
+      "overridePackageName": "helm/helm",
+      "groupName": "helm"
+    },
+    {
+      "matchManagers": ["gomod"],
+      "matchPackageNames": ["helm.sh/helm/v3"],
+      "groupName": "helm"
+    },
+    {
+      "matchManagers": ["gomod", "mise"],
+      "matchPackageNames": ["{go:,}github.com/onsi/ginkgo/v2{,/ginkgo}"],
+      "overrideDatasource": "go",
+      "overridePackageName": "github.com/onsi/ginkgo/v2",
+      "groupName": "ginkgo",
+    },
+    {
+      "matchPackageNames": ["**"],
+      "prFooter": "```json\n{{{toJSON upgrades}}}\n```"
     }
+  ],
+  "prBodyNotes": [
+    "---\n\n- depName: `{{{depName}}}`\n- packageName: `{{{packageName}}}`\n- commitMessagePrefix: `{{{commitMessagePrefix}}}`\n- commitMessageAction: `{{{commitMessageAction}}}`\n- commitMessageTopic: `{{{commitMessageTopic}}}`\n- commitMessageExtra: `{{{commitMessageExtra}}}`\n- commitMessageSuffix: `{{{commitMessageSuffix}}}`\n"
   ]
 }
