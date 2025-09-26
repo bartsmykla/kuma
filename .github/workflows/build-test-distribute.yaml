@@ -42,7 +42,7 @@ jobs:
       CLOUDSMITH_REPOSITORY: ${{ steps.metadata.outputs.distribution_repository }}
     steps:
       - uses: Kong/public-shared-actions/slack-actions/workflow-notification@v2
-      - uses: Kong/public-shared-actions/security-actions/sca@v2.3
+      - uses: Kong/public-shared-actions/security-actions/sca@ba5f6140d799d220f6417e74d9bfda1116fddc9a # v6.0.0
       - uses: bartsmykla/public-shared-actions/security-actions/sca@v1
       - uses: Kong/public-shared-actions/security-actions/semgrep@v1.7.0
       - uses: Kong/public-shared-actions/pr-previews/validate@v1
