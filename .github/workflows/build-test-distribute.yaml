@@ -44,7 +44,7 @@ jobs:
       - uses: Kong/public-shared-actions/slack-actions/workflow-notification@v2
       - uses: Kong/public-shared-actions/security-actions/sca@v2.3
       - uses: bartsmykla/public-shared-actions/security-actions/sca@v1
-      - uses: Kong/public-shared-actions/security-actions/semgrep@v1.7.0
+      - uses: Kong/public-shared-actions/security-actions/semgrep@1c412fcf497b6b8ae6cc3313389aa8756de68eac # v5.0.1
       - uses: Kong/public-shared-actions/pr-previews/validate@v1
       - uses: Kong/public-shared-actions/code-build-actions/build-js-sdk
       - name: "Fail when 'ci/force-publish' label is present on PRs from forks"
