@@ -12,7 +12,8 @@
     ":disableRateLimiting",
     ":semanticCommitTypeAll(chore)",
     "docker:pinDigests",
-    "schedule:earlyMondays"
+    "schedule:earlyMondays",
+    "bartsmykla/kuma:active-branches"
   ],
   "ignorePresets": [
     ":ignoreModulesAndTests",
@@ -171,6 +172,17 @@
       ],
       "matchDepNames": "*",
       "extends": ["Kong/public-shared-renovate//scoped/kuma/commit-message-baseline"]
+    },
+    {
+      "matchBaseBranches": ["release-*"],
+      "matchPackageNames": ["*"],
+      "enabled": false
+    },
+    {
+      "matchBaseBranches": ["release-*"],
+      "matchDepNames": ["envoy"],
+      "matchUpdateTypes": ["patch"],
+      "enabled": true
     }
   ]
 }
