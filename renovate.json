@@ -1,10 +1,10 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
+    "bartsmykla/kuma:active-branches",
     "Kong/public-shared-renovate",
     "Kong/public-shared-renovate//scoped/kuma/go-control-plane",
     "Kong/public-shared-renovate//overrides/security-labels(area/security)",
-    "Kong/public-shared-renovate//overrides/security-reviewers(team:kuma-security-managers)",
     ":automergeRequireAllStatusChecks",
     ":automergeMinor",
     ":automergePatch",
@@ -33,6 +33,8 @@
   "internalChecksFilter": "strict",
   "keepUpdatedLabel": "renovate/keep-updated",
   "rebaseWhen": "conflicted",
+  "prTitleStrict": true,
+  "vulnerabilityAlerts": {"commitMessageSuffix": ""},
   "kubernetes": {
     "description": [
       " Update container image tags in Kubernetes manifests installed via",
@@ -41,7 +43,45 @@
     ],
     "managerFilePatterns": ["/app/kumactl/(?:cmd|data)/install/(?:k8s|testdata)/.+\\.ya?ml$/"]
   },
+  "customManagers": [
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["test/framework/deployments/**/*.go"],
+      "matchStrings": [
+        "oci://(?<registryHost>[^/]+)/(?<org>[^/]+)/(?<packageName>(?:.*/)?(?<depName>[^:@]+))[:@](?<currentValue>[^@\"\\s]+)(?:@(?<currentDigest>sha256:[0-9a-f]{64}))?"
+      ],
+      "registryUrlTemplate": "https://{{registryHost}}/{{org}}",
+      "depNameTemplate": "{{#unless (equals org depName)}}{{org}}/{{/unless}}{{depName}}",
+      "datasourceTemplate": "docker",
+      "versioningTemplate": "semver"
+    }
+  ],
   "packageRules": [
+    {
+      "matchBaseBranches": ["!/(?:master|main)/"],
+      "addLabels": ["{{baseBranch}}"]
+    },
+    {
+      "matchBaseBranches": ["release-*"],
+      "matchPackageNames": ["*"],
+      "enabled": false
+    },
+    {
+      "matchBaseBranches": ["release-*"],
+      "matchDepNames": ["envoy"],
+      "matchUpdateTypes": ["patch"],
+      "enabled": true
+    },
+    {
+      "matchBaseBranches": ["release-*"],
+      "matchFileNames": ["test/framework/deployments/**/*.go"],
+      "matchUpdateTypes": ["digest", "pinDigest"],
+      "enabled": true
+    },
+    {
+      "matchFileNames": ["test/framework/deployments/**/*.go"],
+      "extends": ["Kong/public-shared-renovate//helpers/immediately"]
+    },
     {
       "description": [
         " Show 'Adoption' instead of 'Confidence' in PR body tables for Go updates"
