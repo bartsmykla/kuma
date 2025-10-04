@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	cnpgChart    = "oci://ghcr.io/cloudnative-pg/charts/cloudnative-pg:0.26.0@sha256:b294ea82771c9049b2f1418a56cbab21716343fd44fe68721967c95ca7f5c523"
+	cnpgChart    = "oci://ghcr.io/cloudnative-pg/charts/cloudnative-pg:0.26.0@sha256:c5673ca11b45d3bc46ee4078ca491305202145fc3ee9366aa7d09f730313c73c"
 	clusterChart = "oci://ghcr.io/cloudnative-pg/charts/cluster:0.3.1@sha256:3f4f1a26dc0388f47bc456e0ec733255c1a8469b0742ce052df3885ba935c388"
 )
 
