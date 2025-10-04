@@ -19,8 +19,8 @@ import (
 // different digest, leading to inconsistent and flaky runs. To keep CI
 // stable and reproducible, we pin the charts by immutable digest only
 const (
-	cnpgChart    = "oci://ghcr.io/cloudnative-pg/charts/cloudnative-pg@sha256:b294ea82771c9049b2f1418a56cbab21716343fd44fe68721967c95ca7f5c523" // v0.26.0
-	clusterChart = "oci://ghcr.io/cloudnative-pg/charts/cluster@sha256:05f19a11f04878f1e07fb237b3edf62cb062049733f97685cc2ed1c7544c0e6b" // v0.3.0
+	cnpgChart    = "oci://ghcr.io/cloudnative-pg/charts/cloudnative-pg@sha256:c5673ca11b45d3bc46ee4078ca491305202145fc3ee9366aa7d09f730313c73c" // v0.26.0
+	clusterChart = "oci://ghcr.io/cloudnative-pg/charts/cluster@sha256:bc577ce089834151a538b19f12e624b086e476b22d43864670d4d806fc56e775" // v0.3.1
 )
 
 type k8SDeployment struct {
