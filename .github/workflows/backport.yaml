@@ -143,7 +143,7 @@ jobs:
           {
             echo "Target branches:"
             echo '```json'
-            echo "${branches}"
+            echo "${TARGET_BRANCHES}"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 

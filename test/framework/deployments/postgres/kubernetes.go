@@ -20,7 +20,7 @@ import (
 // stable and reproducible, we pin the charts by immutable digest only
 const (
 	cnpgChart    = "oci://ghcr.io/cloudnative-pg/charts/cloudnative-pg@sha256:b294ea82771c9049b2f1418a56cbab21716343fd44fe68721967c95ca7f5c523" // v0.26.0
-	clusterChart = "oci://ghcr.io/cloudnative-pg/charts/cluster@sha256:3f4f1a26dc0388f47bc456e0ec733255c1a8469b0742ce052df3885ba935c388" // v0.3.1
+	clusterChart = "oci://ghcr.io/cloudnative-pg/charts/cluster@sha256:05f19a11f04878f1e07fb237b3edf62cb062049733f97685cc2ed1c7544c0e6b" // v0.3.0
 )
 
 type k8SDeployment struct {
