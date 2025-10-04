@@ -1,10 +1,10 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
+    "bartsmykla/kuma:active-branches",
     "Kong/public-shared-renovate",
     "Kong/public-shared-renovate//scoped/kuma/go-control-plane",
     "Kong/public-shared-renovate//overrides/security-labels(area/security)",
-    "Kong/public-shared-renovate//overrides/security-reviewers(team:kuma-security-managers)",
     ":automergeRequireAllStatusChecks",
     ":automergeMinor",
     ":automergePatch",
@@ -33,6 +33,11 @@
   "internalChecksFilter": "strict",
   "keepUpdatedLabel": "renovate/keep-updated",
   "rebaseWhen": "conflicted",
+  "prTitleStrict": true,
+  "vulnerabilityAlerts": {
+    "commitMessageSuffix": "",
+    "postUpdateOptions": ["gomodTidy", "gomodMassage"]
+  },
   "kubernetes": {
     "description": [
       " Update container image tags in Kubernetes manifests installed via",
@@ -41,7 +46,52 @@
     ],
     "managerFilePatterns": ["/app/kumactl/(?:cmd|data)/install/(?:k8s|testdata)/.+\\.ya?ml$/"]
   },
+  "customManagers": [
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["test/framework/deployments/**/*.go"],
+      "matchStrings": [
+        "\"oci://(?<host>[^/]+)/(?<org>[^/]+)/(?<packageName>(?:.*?/)?(?<depName>[^@]+))@(?<currentDigest>sha256:[0-9a-f]{64})\" // v(?<currentValue>\\S+)(?<indentation>\\s*)"
+      ],
+      "registryUrlTemplate": "https://{{host}}/{{org}}",
+      "depNameTemplate": "{{#unless (equals org depName)}}{{org}}/{{/unless}}{{depName}}",
+      "datasourceTemplate": "docker",
+      "versioningTemplate": "semver",
+    }
+  ],
   "packageRules": [
+    {
+      "description": [
+        " For PRs targeting branches other than 'main' or 'master', add a label with",
+        " the base branch name (e.g. 'release-2.8') so reviewers can quickly identify",
+        " which release branch the PR targets"
+      ],
+      "matchBaseBranches": ["!/(?:master|main)/"],
+      "addLabels": ["{{baseBranch}}"]
+    },
+    {
+      "description": [
+        " Disable all dependency updates by default on 'release-*' branches to keep",
+        " those branches stable and predictable"
+      ],
+      "matchBaseBranches": ["release-*"],
+      "matchPackageNames": ["*"],
+      "enabled": false
+    },
+    {
+      "description": [
+        " Exception for release branches: allow patch-level updates to 'envoy' so we can pick up",
+        " bugfixes and security patches without enabling all updates"
+      ],
+      "matchBaseBranches": ["release-*"],
+      "matchDepNames": ["envoy"],
+      "matchUpdateTypes": ["patch"],
+      "enabled": true
+    },
+    {
+      "matchSourceUrls": ["https://github.com/cloudnative-pg/charts"],
+      "groupName": "cloudnative-pg charts"
+    },
     {
       "description": [
         " Show 'Adoption' instead of 'Confidence' in PR body tables for Go updates"
