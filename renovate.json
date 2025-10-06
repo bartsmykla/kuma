@@ -2,7 +2,6 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
     "Kong/public-shared-renovate",
-    "Kong/public-shared-renovate//scoped/kuma/go-control-plane",
     "Kong/public-shared-renovate//overrides/security-labels(area/security)",
     "Kong/public-shared-renovate//overrides/security-reviewers(team:kuma-security-managers)",
     ":automergeRequireAllStatusChecks",
@@ -171,6 +170,21 @@
       ],
       "matchDepNames": "*",
       "extends": ["Kong/public-shared-renovate//scoped/kuma/commit-message-baseline"]
+    },
+    {
+      "matchDatasources": ["gomod"],
+      "matchDepTypes": ["replace"],
+      "matchPackageNames": ["github.com/kumahq/go-control-plane{,/*}"],
+      "versioning": "regex:^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(?:(?<compatibility>\\[+-]kong-)(?<build>\\d+))?$",
+      "postUpdateOptions": ["gomodTidy", "gomodUpdateImportPaths"],
+    },
+    {
+      "matchBaseBranches": ["*"],
+      "prBodyNotes": [
+        "---",
+        "| Type | Value |\n|------|-------|\n| depName | {{#if depName}}{{{depName}}}{{/if}} |\n| packageName | {{#if packageName}}{{{packageName}}}{{/if}} |\n| sourceUrl | {{#if sourceUrl}}{{{sourceUrl}}}{{/if}} |\n| currentVersion | {{#if currentVersion}}{{{currentVersion}}}{{/if}} |\n| currentValue | {{#if currentValue}}{{{currentValue}}}{{/if}} |\n| currentDigestShort | {{#if currentDigestShort}}{{{currentDigestShort}}}{{/if}} |\n| newVersion | {{#if newVersion}}{{{newVersion}}}{{/if}} |\n| newValue | {{#if newValue}}{{{newValue}}}{{/if}} |\n| newDigestShort | {{#if newDigestShort}}{{{newDigestShort}}}{{/if}} |\n| datasource | {{#if datasource}}{{{datasource}}}{{/if}} |\n| manager | {{#if manager}}{{{manager}}}{{/if}} |\n| depType | {{#if depType}}{{{depType}}}{{/if}} |\n| categories | {{#if categories}}{{{categories}}}{{/if}} |\n| commitMessage | {{#if commitMessage}}{{{commitMessage}}}{{/if}} |\n| commitMessagePrefix | {{#if commitMessagePrefix}}{{{commitMessagePrefix}}}{{/if}} |\n| commitMessageAction | {{#if commitMessageAction}}{{{commitMessageAction}}}{{/if}} |\n| commitMessageTopic | {{#if commitMessageTopic}}{{{commitMessageTopic}}}{{/if}} |\n| commitMessageExtra | {{#if commitMessageExtra}}{{{commitMessageExtra}}}{{/if}} |\n| commitMessageSuffix | {{#if commitMessageSuffix}}{{{commitMessageSuffix}}}{{/if}} |\n| isGroup | {{#if isGroup}}{{{isGroup}}}{{else}}false{{/if}} |\n| isMajor | {{#if isMajor}}{{{isMajor}}}{{else}}false{{/if}} |\n| isMinor | {{#if isMinor}}{{{isMinor}}}{{else}}false{{/if}} |\n| isPatch | {{#if isPatch}}{{{isPatch}}}{{else}}false{{/if}} |\n| isSingleVersion | {{#if isSingleVersion}}{{{isSingleVersion}}}{{else}}false{{/if}} |\n| _isDigest | {{#if (and (equals updateType 'digest') currentDigestShort)}}true{{else}}false{{/if}} |\n| _full | {{#if (or (and (or isMajor isMinor isPatch) (or isSingleVersion currentDigestShort)) (and (equals updateType 'digest') currentDigestShort))}}true{{else}}false{{/if}} |\n| newVersionAgeInDays | {{#if newVersionAgeInDays includeZero=true}}{{{newVersionAgeInDays}}}{{/if}} |\n"
+      ],
+      "prFooter": "| Type | Value |\n|------|-------|\n| isSingleVersion | {{#if isSingleVersion}}{{{isSingleVersion}}}{{else}}false{{/if}} |\n| newVersion | {{#if newVersion}}{{{newVersion}}}{{/if}} |\n| suffix | {{#each (distinct (lookupArray upgrades \"prettyNewVersion\"))}}{{#if (and @last (equals @index 0))}}to {{.}}{{/if}}{{/each}} |\n````json\n{{{ toJSON (distinct (lookupArray upgrades \"prettyNewVersion\")) }}}\n````\n"
     }
   ]
 }
