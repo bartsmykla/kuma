@@ -193,6 +193,11 @@
       "enabled": true
     },
     {
+      "matchDatasources": ["go"],
+      "matchPackageNames": ["github.com/kumahq/**"],
+      "extends": ["Kong/public-shared-renovate//helpers/immediately"]
+    },
+    {
       "description": [
         " Catch-all rule that applies the standard commit message format for all dependencies",
         "",
