@@ -70,7 +70,7 @@
         " manually"
       ],
       "matchManagers": ["kubernetes"],
-      "matchPackageNames": ["/^gcr.io/octo/", "/^docker.io/kumahq/", "/^kuma-ci/"],
+      "matchPackageNames": ["gcr.io/octo/**", "docker.io/{kumahq,[Kk]ong}/**", "kuma-ci/**"],
       "matchFileNames": ["/app/kumactl/cmd/install/testdata/.+\\.ya?ml$/"],
       "enabled": false
     },
