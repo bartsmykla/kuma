@@ -3,8 +3,8 @@ DOCS_CP_CONFIG ?= pkg/config/app/kuma-cp/kuma-cp.defaults.yaml
 DOCS_EXTRA_TARGETS ?=
 DOCS_OPENAPI_PREREQUISITES ?=
 
-# renovate[custom/docker]: depName=kumahq/openapi-tool registryUrl=https://ghcr.io
-OAPI_TOOLS_VERSION ?= v1.2.1@sha256:8f81e7ce2fd57916c87db172534c28786a418cf90fff3fc624a553e51359b16f
+# renovate[docker]: depName=kumahq/openapi-tool registryUrl=https://ghcr.io
+OAPI_TOOLS_VERSION ?= v1.1.7@sha256:53eed10a1e515b1398cb575ce2df6eb66d5c5edaba7ca470f6a47b196f344e83
 
 .PHONY: clean/docs
 clean/docs:

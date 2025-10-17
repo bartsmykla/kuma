@@ -63,10 +63,9 @@
         "/\\.mk$/"
       ],
       "matchStrings": [
-        "# renovate\\[custom/docker.*?\\]: depName=(?<depName>\\S+?)(?: packageName=(?<packageName>\\S+?))?(?: extractVersion=(?<extractVersion>\\S+?))?(?: registryUrl=(?<registryUrl>\\S+?))?\\s+(?:export )?[A-Za-z0-9_]+?_VERSION\\s*:*\\??=\\s*[\"']?(?<currentValue>[^@\\s\"']+)(?:@(?<currentDigest>sha256:[0-9a-f]{64}))?[\"']?"
+        "# renovate\\[(?<datasource>[0-9a-z-]+)(?:/(?<versioning>[0-9a-z-]+))?\\]: depName=(?<depName>\\S+?)(?: packageName=(?<packageName>\\S+?))?(?: extractVersion=(?<extractVersion>\\S+?))?(?: registryUrl=(?<registryUrl>\\S+?))?\\s+(?:export )?[A-Za-z0-9_]+?_VERSION\\s*:*\\??=\\s*[\"']?(?<currentValue>[^@\\s\"']+)(?:@(?<currentDigest>sha256:[0-9a-f]{64}))?[\"']?"
       ],
-      "datasourceTemplate": "docker",
-      "versioningTemplate": "docker"
+      "versioningTemplate": "{{#if versioning}}{{versioning}}{{else if (or (includes (toArray 'docker' 'helm' 'npm' 'kubernetes-api') datasource))}}{{datasource}}{{else if (equals datasource 'node-version')}}node{{else if (equals datasource 'crate')}}cargo{{else if (or (includes (toArray 'go' 'golang-version') datasource))}}semver{{else}}semver-coerced{{/if}}"
     }
   ],
   "packageRules": [
