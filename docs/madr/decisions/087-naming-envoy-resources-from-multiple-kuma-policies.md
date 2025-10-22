@@ -30,6 +30,7 @@ This principle works well when there is a **one-to-one relationship** between a 
 - RBAC filters combining rules from multiple `MeshTrafficPermission` policies
 - HTTP connection managers where multiple `MeshTimeout`, `MeshRetry`, or `MeshRateLimit` policies apply
 - Clusters where multiple `MeshHealthCheck` or `MeshCircuitBreaker` policies merge
+- Passthrough filter chains and clusters from multiple `MeshPassthrough` policies targeting the same proxy
 
 These multi-policy scenarios were explicitly marked as out of scope in [previous MADRs](https://github.com/kumahq/kuma/blob/210d6f7a354bc279b0f2184bb4a4ae9229394b8c/docs/madr/decisions/076-naming-system-envoy-resources.md#L119-L120). **This MADR addresses that gap** by evaluating approaches to handle multi-policy Envoy resources and components. The evaluation focuses on resources and components that **generate stats and metrics**, where naming directly impacts observability. For resources without observability impact, not having an explicit name is acceptable.
 
@@ -54,7 +55,6 @@ Documents the chosen approach, rationale, implementation guidance, and migration
 - **Non-xDS resources**: Endpoints, secrets, and other resources handled separately
 - **Deprecated patterns**: Legacy `kuma.io/service` tag-based naming
 - **Default routes**: Routes generated when no `MeshHTTPRoute` is defined will be addressed in a separate MADR
-- **MeshPassthrough resources**: Resources related to the `MeshPassthrough` policy will be addressed in a separate MADR
 
 ## Why this matters
 
@@ -285,3 +285,65 @@ HTTP stats use this `stat_prefix`: `http.kri_msvc_default_zone-1_demo-app_backen
 | `MeshCircuitBreaker` | Cluster circuit breaker stats don't reflect which policies set thresholds | `cluster.<name>.circuit_breakers.*`, `cluster.<name>.upstream_rq_pending_overflow`, outlier detection ejection stats |
 
 **Common pattern**: All these policy types merge into existing Envoy components without creating separately-named filters or resources, making it impossible to attribute specific stats or behaviors to individual policies.
+
+### 5. Passthrough filter chains and clusters from MeshPassthrough policies
+
+**Problem**: `MeshPassthrough` policies configure filter chains on a common, shared `outbound:passthrough:ipv4` listener. Filter chains are grouped by protocol and port (e.g., `meshpassthrough_http_80`), not by individual policy. This means the naming scheme provides no attribution to source policies - whether it's a single policy with multiple domains or multiple policies contributing to the same protocol/port combination. Each match entry creates separate clusters, but filter chain names reflect only the protocol/port grouping.
+
+**Current behavior**: `MeshPassthrough` policies configure a common, shared listener for all passthrough traffic. The naming scheme is based on protocol/port grouping, not policy identity:
+- **Listener name**: `outbound:passthrough:ipv4` (fixed legacy format, common to all passthrough traffic regardless of which policies configure it)
+- **Filter chain names**: `meshpassthrough_<protocol>_<port>` (e.g., `meshpassthrough_http_80`) - grouped by protocol/port, not by policy
+- **HTTPConnectionManager stat_prefix**: `meshpassthrough_<protocol>_<port>` (same as filter chain)
+- **RouteConfiguration names**: `meshpassthrough_<protocol>_<port>` (same as filter chain)
+- **Cluster names**: `meshpassthrough_<protocol>_<domain>_<port>` (e.g., `meshpassthrough_http_example1.com_80`)
+- **altStatName**: Sanitized version with dots/wildcards replaced by underscores (e.g., `meshpassthrough_http_example1_com_80`)
+
+All `MeshPassthrough` policies targeting the same proxy configure this shared listener. Filter chains are organized by protocol/port grouping - whether domains come from one policy or multiple policies, they share the same filter chain for a given protocol/port combination. Each domain gets its own virtual host and cluster, but there's no attribution to the source policy.
+
+**Example**: Two `MeshPassthrough` policies (`passthrough-aws-services` and `passthrough-google-apis`) targeting the same namespace with multiple HTTP domains on port 80:
+
+```yaml
+Listener:
+  name: outbound:passthrough:ipv4
+  filter_chains:
+    - name: meshpassthrough_http_80
+      filter_chain_match:
+        destination_port: 80
+        application_protocols: ["http/1.1", "h2c"]
+      filters:
+        - name: envoy.filters.network.http_connection_manager
+          typed_config:
+            stat_prefix: meshpassthrough_http_80
+            route_config:
+              name: meshpassthrough_http_80
+              virtual_hosts:
+                - name: s3.amazonaws.com
+                  domains: ["s3.amazonaws.com", "s3.amazonaws.com:80"]
+                  routes:
+                    - match: { prefix: / }
+                      route: { cluster: meshpassthrough_http_s3.amazonaws.com_80 }
+                - name: dynamodb.us-east-1.amazonaws.com
+                  domains: ["dynamodb.us-east-1.amazonaws.com", "dynamodb.us-east-1.amazonaws.com:80"]
+                  routes:
+                    - match: { prefix: / }
+                      route: { cluster: meshpassthrough_http_dynamodb.us-east-1.amazonaws.com_80 }
+                - name: storage.googleapis.com
+                  domains: ["storage.googleapis.com", "storage.googleapis.com:80"]
+                  routes:
+                    - match: { prefix: / }
+                      route: { cluster: meshpassthrough_http_storage.googleapis.com_80 }
+
+Clusters:
+  - name: meshpassthrough_http_s3.amazonaws.com_80
+    alt_stat_name: meshpassthrough_http_s3_amazonaws_com_80
+  - name: meshpassthrough_http_dynamodb.us-east-1.amazonaws.com_80
+    alt_stat_name: meshpassthrough_http_dynamodb_us-east-1_amazonaws_com_80
+  - name: meshpassthrough_http_storage.googleapis.com_80
+    alt_stat_name: meshpassthrough_http_storage_googleapis_com_80
+```
+
+This example shows multiple policies (`passthrough-aws-services` and `passthrough-google-apis`) contributing domains to the same filter chain `meshpassthrough_http_80`. However, the same naming challenge exists even with a single policy that configures multiple domains on the same protocol/port - all domains share the common filter chain name based on protocol/port grouping.
+
+**Naming challenge**: The root cause is the shared listener architecture and protocol/port-based grouping. Filter chain, route configuration, and `stat_prefix` names are derived from protocol/port (`meshpassthrough_http_80`), not from policy identity. This means stats like `http.meshpassthrough_http_80.downstream_rq_total` aggregate across all domains on that protocol/port without any policy attribution - whether those domains come from one policy or multiple policies. Individual clusters are named by domain, but there's no indication of which `MeshPassthrough` policy configured each domain. Virtual host stats (`vhost.<domain>.*`) can identify individual domains but not the source policies.
+
+**Stats affected**: `http.meshpassthrough_<protocol>_<port>.*` (aggregates all domains/policies), `cluster.meshpassthrough_<protocol>_<domain>_<port>.*` (per domain, no policy attribution), `listener.outbound:passthrough:ipv4.*` (all passthrough traffic)
