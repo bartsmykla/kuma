@@ -1,7 +1,7 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
-    "kumahq/kuma:active-branches",
+    "bartsmykla/kuma:active-branches",
     "Kong/public-shared-renovate",
     "Kong/public-shared-renovate//scoped/kuma/go-control-plane",
     "Kong/public-shared-renovate//overrides/security-labels(area/security)",
@@ -14,12 +14,6 @@
     ":semanticCommitTypeAll(chore)",
     "docker:pinDigests",
     "schedule:earlyMondays"
-  ],
-  "ignorePresets": [
-    ":ignoreModulesAndTests",
-    "customManagers:dockerfileVersions",
-    "customManagers:helmChartYamlAppVersions",
-    "customManagers:tfvarsVersions"
   ],
   "enabledManagers": [
     "custom.regex",
@@ -233,8 +227,20 @@
         " bugfixes and security patches without enabling all updates"
       ],
       "matchBaseBranches": ["release-*"],
-      "matchDepNames": ["envoy"],
+      "matchPackageNames": ["kumahq/envoy-builds"],
       "matchUpdateTypes": ["patch"],
+      "enabled": true
+    },
+    {
+      "description": [
+        " Exception for release branches: allow patch and digest updates to base images in",
+        " 'tools/releases/dockerfiles/*.Dockerfile' so we can pick up security patches and",
+        " bug fixes for Docker base images without enabling all updates"
+      ],
+      "matchBaseBranches": ["release-*"],
+      "matchPackageNames": ["*"],
+      "matchFileNames": ["tools/releases/dockerfiles/*.Dockerfile"],
+      "matchUpdateTypes": ["patch", "digest"],
       "enabled": true
     },
     {
