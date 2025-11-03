@@ -1096,10 +1096,9 @@ var _ = Describe("Insight Persistence", func() {
 		}
 		step(1)
 
-		Eventually(func(g Gomega) {
+		Eventually(func() error {
 			insight := core_mesh.NewMeshInsightResource()
-			err := rm.Get(context.Background(), insight, store.GetByKey("mesh-1", model.NoMesh))
-			g.Expect(err).ToNot(HaveOccurred())
+			return rm.Get(context.Background(), insight, store.GetByKey("mesh-1", model.NoMesh))
 		}).Should(Succeed())
 	})
 
@@ -1110,10 +1109,9 @@ var _ = Describe("Insight Persistence", func() {
 		eventCh <- events.TriggerInsightsComputationEvent{}
 		step(1)
 
-		Eventually(func(g Gomega) {
+		Eventually(func() error {
 			insight := core_mesh.NewMeshInsightResource()
-			err := rm.Get(context.Background(), insight, store.GetByKey("mesh-1", model.NoMesh))
-			g.Expect(err).ToNot(HaveOccurred())
+			return rm.Get(context.Background(), insight, store.GetByKey("mesh-1", model.NoMesh))
 		}).Should(Succeed())
 	})
 
