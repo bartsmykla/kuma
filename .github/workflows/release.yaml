@@ -1,108 +1,369 @@
+# ============================================================================
+# Release Workflow
+# ============================================================================
+# Manages the complete release lifecycle for Kuma:
+# 1. Release Creation - Creates GitHub releases with generated changelog
+# 2. Release Verification - Validates Helm charts, binaries, and Docker images
+# 3. Changelog & Version Sync - Updates CHANGELOG.md, versions.yml, active-branches.json
+#
+# Triggers:
+#   - release event: Syncs changelog when release published
+#   - schedule (07:00 UTC): Daily changelog and version file sync
+#   - workflow_dispatch: Manual release creation/verification/sync
+#
+# Security: Uses minimal 'contents: read' + GitHub App token for write ops
+# ============================================================================
+
 name: "release"
-run-name: Release${{ inputs.check && ' and check' || '' }} ${{ inputs.release }}
+
+run-name: >-
+  ${{
+    inputs.mode == 'release' && inputs.verify_after_release && format('Release {0} + Verify', inputs.release)
+    || inputs.mode == 'release' && format('Release {0}', inputs.release)
+    || inputs.mode == 'verify' && format('Verify Release {0}', inputs.release)
+    || 'Sync Changelog & Versions'
+  }}
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
+
 on:
   release: {}
   schedule:
     - cron: 0 7 * * *
   workflow_dispatch:
     inputs:
-      release:
-        description: "the version to publish, if you just want to regen the changelog.md set 0.0.0"
+      mode:
+        description: "Choose the workflow operation to perform"
         required: true
+        type: choice
+        options:
+          - docs-only   # Sync CHANGELOG.md, versions.yml, and active-branches.json
+          - release     # Create a new GitHub release
+          - verify      # Verify an existing release is published
+        default: docs-only
+      release:
+        description: "Semantic version with optional 'v' prefix (required for 'release' and 'verify' modes, e.g., 2.5.0 or v2.5.0)"
+        required: false
         type: string
-      check:
+      verify_after_release:
+        description: "Run verification checks after creating release (only applicable when mode='release')"
         required: false
         type: boolean
         default: false
-        description: "check that everything is published correctly"
+
 env:
+  # External repositories
   CHARTS_REPO: "kumahq/charts"
-  BINARIES: "darwin-amd64,darwin-arm64,linux-amd64,linux-arm64"
   DOCKER_REPO: "kumahq"
+
+  # Release artifacts
+  BINARIES: "darwin-amd64,darwin-arm64,linux-amd64,linux-arm64"
   DOCKER_IMAGES: "kumactl,kuma-cp,kuma-dp,kuma-init,kuma-cni"
-  RELEASE: ${{ inputs.release || '0.0.0' }}
-  CHECK: ${{ inputs.check || 'false' }}
+
+  # Release configuration
   EDITION: kuma
   MIN_VERSION: "2.2.0"
+
+  # Derived from workflow inputs
+  MODE: ${{ inputs.mode || 'docs-only' }}
+  RELEASE: ${{ inputs.release || '0.0.0' }}
+  # Run verification in 'verify' mode OR when 'release' mode has verify_after_release enabled
+  VERIFY: >-
+    ${{
+      inputs.mode == 'verify'
+      || (inputs.mode == 'release' && inputs.verify_after_release)
+    }}
+
   # renovate: datasource=go depName=ci-tools/release-tool packageName=github.com/kumahq/ci-tools versioning=semver
   RELEASE_TOOL_VERSION: "v1.2.1"
+
+# Minimal permissions - write access via GitHub App token
 permissions:
   contents: read
+
+# Shell safety defaults: exit on error, undefined variables, and pipe failures
+defaults:
+  run:
+    shell: bash
+
 jobs:
   release:
-    timeout-minutes: 30
+    timeout-minutes: 15  # Reduced from 30m - realistic max is ~10m
     runs-on: ubuntu-24.04
+    # Use GitHub Environment for production releases with protection rules
+    environment:
+      name: ${{ inputs.mode == 'release' && 'production' || '' }}
+      url: ${{ inputs.mode == 'release' && format('https://github.com/{0}/releases/tag/{1}', github.repository, inputs.release) || '' }}
+
     steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      # ======================================================================
+      # Setup
+      # ======================================================================
+
+      - name: Checkout repository
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           ref: "master"
-      - uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
+
+      - name: Setup Go environment
+        uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
         with:
           go-version-file: go.mod
-      - name: install-kuma-ci-tools
+          cache: true
+
+      - name: Install Kuma release tool
         run: |
-          echo $(go env GOPATH)/bin >> $GITHUB_PATH
+          echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
           go install github.com/kumahq/ci-tools/cmd/release-tool@${{ env.RELEASE_TOOL_VERSION }}
-      - name: Generate GitHub app token
+
+      # ======================================================================
+      # Input Validation
+      # ======================================================================
+
+      - name: Validate mode and release input compatibility
+        run: |
+          set -euo pipefail
+
+          if [[ "${{ env.MODE }}" == "release" || "${{ env.MODE }}" == "verify" ]]; then
+            if [[ -z "${{ inputs.release }}" ]]; then
+              echo "::error::Release version is required for '${{ env.MODE }}' mode"
+              echo "❌ ERROR: Release version is required for '${{ env.MODE }}' mode"
+              echo "Please provide a semantic version (e.g., 2.5.0 or v2.5.0)"
+              exit 1
+            fi
+          fi
+
+          if [[ "${{ inputs.verify_after_release }}" == "true" && "${{ env.MODE }}" != "release" ]]; then
+            echo "::warning::verify_after_release is only applicable when mode='release'"
+            echo "⚠️  WARNING: verify_after_release is only applicable when mode='release'"
+            echo "This option will be ignored for mode='${{ env.MODE }}'"
+          fi
+
+          echo "✅ Input validation passed"
+
+      - name: Validate release version format
+        if: env.MODE != 'docs-only'
+        run: |
+          set -euo pipefail
+
+          echo "Validating release version: ${{ env.RELEASE }}"
+          # Accepts semantic versioning with optional 'v' prefix and pre-release/build metadata
+          # Valid examples: 2.5.0, v2.5.0, 2.5.0-rc.1, v2.5.0-rc.1, 2.5.0+build.123
+          if ! echo "${{ env.RELEASE }}" | grep -E '^v?[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?(\+[a-zA-Z0-9.]+)?$'; then
+            echo "::error::Invalid semantic version format: ${{ env.RELEASE }}"
+            echo "❌ ERROR: Invalid semantic version format: ${{ env.RELEASE }}"
+            echo "Expected format: X.Y.Z or vX.Y.Z"
+            echo "Valid examples: 2.5.0, v2.5.0, 2.5.0-rc.1, v2.5.0-rc.1"
+            exit 1
+          fi
+          echo "✅ Version format is valid"
+
+      # ======================================================================
+      # Authentication
+      # ======================================================================
+      # Generate short-lived GitHub App token for write operations
+      # Note: GITHUB_TOKEN env must be set explicitly in each step that needs it
+      # (cannot be set at job level since this step output isn't available yet)
+
+      - name: Generate GitHub App token
         id: github-app-token
         uses: actions/create-github-app-token@67018539274d69449ef7c02e8e71183d1719ab42 # v2.1.4
         with:
           app-id: ${{ secrets.APP_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
-      - name: create-release
-        if: env.RELEASE != '0.0.0'
+
+      # ======================================================================
+      # Release Creation
+      # ======================================================================
+      # Only runs in 'release' mode
+
+      - name: Create GitHub release
+        if: env.MODE == 'release'
+        timeout-minutes: 5
         env:
           GITHUB_TOKEN: ${{ steps.github-app-token.outputs.token }}
         run: |
-          release-tool release changelog --repo ${{ github.repository }} --release ${{ env.RELEASE }}
-      - name: check-helm
-        if: env.RELEASE != '0.0.0' && fromJSON(env.CHECK)
+          set -euo pipefail
+
+          echo "## Creating Release ${{ env.RELEASE }}" >> $GITHUB_STEP_SUMMARY
+
+          release-tool release changelog \
+            --repo ${{ github.repository }} \
+            --release ${{ env.RELEASE }}
+
+          echo "✅ [View Release](https://github.com/${{ github.repository }}/releases/tag/${{ env.RELEASE }})" >> $GITHUB_STEP_SUMMARY
+
+      # ======================================================================
+      # Release Verification
+      # ======================================================================
+      # Runs in 'verify' mode OR when 'release' mode has verify_after_release=true
+      # Uses read-only github.token for verification checks
+
+      - name: Verify Helm chart published
+        if: fromJSON(env.VERIFY)
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
-          release-tool release helm-chart --repo ${{ github.repository }} --charts-repo ${{ env.CHARTS_REPO }} --release ${{ env.RELEASE }}
-      - name: check-binaries
+          set -euo pipefail
+
+          echo "### Verifying Helm Chart" >> $GITHUB_STEP_SUMMARY
+
+          if release-tool release helm-chart \
+            --repo ${{ github.repository }} \
+            --charts-repo ${{ env.CHARTS_REPO }} \
+            --release ${{ env.RELEASE }} \
+            | tee helm-check.log; then
+            echo "✅ Helm chart verification passed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "::error::Helm chart verification failed for release ${{ env.RELEASE }}"
+            echo "❌ Helm chart verification failed" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+
+      - name: Verify release binaries available
+        if: fromJSON(env.VERIFY)
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        if: fromJSON(env.CHECK)
         run: |
-          release-tool release binaries --repo ${{ github.repository }} --release ${{ env.RELEASE }} --binaries ${{ env.BINARIES }}
-      - name: check-docker
+          set -euo pipefail
+
+          echo "### Verifying Release Binaries (${{ env.BINARIES }})" >> $GITHUB_STEP_SUMMARY
+
+          if release-tool release binaries \
+            --repo ${{ github.repository }} \
+            --release ${{ env.RELEASE }} \
+            --binaries ${{ env.BINARIES }} \
+            | tee binaries-check.log; then
+            echo "✅ Binary verification passed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "::error::Binary verification failed for release ${{ env.RELEASE }}"
+            echo "❌ Binary verification failed" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+
+      - name: Verify Docker images published
+        if: fromJSON(env.VERIFY)
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        if: fromJSON(env.CHECK)
         run: |
-          release-tool release docker --repo ${{ github.repository }} --release ${{ env.RELEASE }} --docker-repo ${{env.DOCKER_REPO }} --images ${{ env.DOCKER_IMAGES }}
-      - name: update-active-branches.json
+          set -euo pipefail
+
+          echo "### Verifying Docker Images (${{ env.DOCKER_IMAGES }})" >> $GITHUB_STEP_SUMMARY
+
+          if release-tool release docker \
+            --repo ${{ github.repository }} \
+            --release ${{ env.RELEASE }} \
+            --docker-repo ${{ env.DOCKER_REPO }} \
+            --images ${{ env.DOCKER_IMAGES }} \
+            | tee docker-check.log; then
+            echo "✅ Docker image verification passed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "::error::Docker image verification failed for release ${{ env.RELEASE }}"
+            echo "❌ Docker image verification failed" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+
+      - name: Upload verification results
+        if: fromJSON(env.VERIFY) && always()
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        with:
+          name: verification-results
+          path: |
+            helm-check.log
+            binaries-check.log
+            docker-check.log
+          retention-days: 30
+          if-no-files-found: ignore
+
+      # ======================================================================
+      # Changelog & Version File Updates
+      # ======================================================================
+      # Updates CHANGELOG.md, versions.yml, and active-branches.json
+      # Uses GitHub App token for write operations
+
+      - name: Generate active branches metadata
         env:
           GITHUB_TOKEN: ${{ steps.github-app-token.outputs.token }}
         run: |
-          release-tool version-file --repo ${{ github.repository }} --active-branches > active-branches.json
-      - name: update-versions.yml
+          set -euo pipefail
+
+          release-tool version-file \
+            --repo ${{ github.repository }} \
+            --active-branches \
+            > active-branches.json
+
+          echo "Generated active-branches.json with $(jq '.baseBranchPatterns | length' active-branches.json) branches"
+
+      - name: Generate versions metadata
         env:
           GITHUB_TOKEN: ${{ steps.github-app-token.outputs.token }}
         run: |
-          release-tool version-file --repo ${{ github.repository }} --edition ${{ env.EDITION }} --min-version ${{ env.MIN_VERSION }} > versions.yml
-      - name: update-CHANGELOG.md
+          set -euo pipefail
+
+          release-tool version-file \
+            --repo ${{ github.repository }} \
+            --edition ${{ env.EDITION }} \
+            --min-version ${{ env.MIN_VERSION }} \
+            > versions.yml
+
+          echo "Generated versions.yml"
+
+      - name: Generate complete changelog
         env:
           GITHUB_TOKEN: ${{ steps.github-app-token.outputs.token }}
         run: |
-          release-tool changelog.md --repo ${{ github.repository }} > CHANGELOG.md
-      - name: "Create Pull Request"
+          set -euo pipefail
+
+          release-tool changelog.md \
+            --repo ${{ github.repository }} \
+            > CHANGELOG.md
+
+          echo "✅ Documentation files updated" >> $GITHUB_STEP_SUMMARY
+
+      # ======================================================================
+      # Pull Request Creation
+      # ======================================================================
+
+      - name: Create documentation update pull request
+        id: create-pr
+        timeout-minutes: 5
         uses: peter-evans/create-pull-request@271a8d0340265f705b14b6d32b9829c1cb33d45e # v7.0.8
         with:
+          token: ${{ steps.github-app-token.outputs.token }}
           commit-message: "docs(CHANGELOG.md): updating changelog and version files"
+          committer: kumahq[bot] <110050114+kumahq[bot]@users.noreply.github.com>
+          author: kumahq[bot] <110050114+kumahq[bot]@users.noreply.github.com>
           signoff: true
           branch: chore/update-changelog
           base: master
           delete-branch: true
           title: "docs(CHANGELOG.md): updating changelog and version files"
+          body: |
+            ## Motivation
+
+            Automated synchronization of changelog and version tracking files to keep them up-to-date with the latest releases and active branches.
+
+            ## Implementation information
+
+            This PR is automatically generated by the release workflow and updates:
+            - `CHANGELOG.md` - Complete project changelog aggregated from all releases
+            - `versions.yml` - Version metadata for documentation and release tracking
+            - `active-branches.json` - Active release branch tracking for CI/CD workflows
+
+            ## Supporting documentation
+
+            Generated by: `.github/workflows/release.yaml`
+
+            > Changelog: skip
           draft: false
-          labels: ci/skip-test,ci/auto-merge
+          labels: ci/skip-test
+
+      - name: Enable auto-merge on pull request
+        if: steps.create-pr.outputs.pull-request-number != ''
+        uses: peter-evans/enable-pull-request-automerge@a660677d5469627102a1c1e11409dd063606628d # v3.0.0
+        with:
           token: ${{ steps.github-app-token.outputs.token }}
-          committer: kumahq[bot] <110050114+kumahq[bot]@users.noreply.github.com>
-          author: kumahq[bot] <110050114+kumahq[bot]@users.noreply.github.com>
+          pull-request-number: ${{ steps.create-pr.outputs.pull-request-number }}
+          merge-method: squash
