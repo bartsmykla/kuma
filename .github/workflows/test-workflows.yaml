@@ -1,0 +1,331 @@
+# ============================================================================
+# Workflows & Scripts Quality Assurance
+# ============================================================================
+# Comprehensive validation for all GitHub Actions workflows and shell scripts
+# to maintain high quality standards and catch issues early.
+#
+# Validates:
+#   - All GitHub workflow files (.github/workflows/*.yaml)
+#   - All shell scripts in the repository (shellcheck)
+#   - Workflow input documentation completeness
+#   - Critical script smoke tests (version.sh, helm.sh)
+#
+# Triggers:
+#   - All pull requests (uses paths-filter to detect relevant changes)
+#   - Push to master (uses paths-filter to detect relevant changes)
+#   - Manual workflow_dispatch
+#
+# Required Check: This workflow is designed to be a required check in PRs.
+# It always runs but skips validation when no workflows/scripts changed.
+# ============================================================================
+
+name: "test-workflows"
+
+run-name: "Validate Workflows & Scripts"
+
+on:
+  pull_request:
+  push:
+    branches:
+      - 'master'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  detect-changes:
+    name: "Detect File Changes"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      workflows: ${{ steps.filter.outputs.workflows }}
+      scripts: ${{ steps.filter.outputs.scripts }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcb5dd907a8 # v5.0.0
+        with:
+          fetch-depth: 0
+
+      - name: Detect changed files
+        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+        id: filter
+        with:
+          filters: |
+            workflows:
+              - '.github/workflows/**/*.yaml'
+              - '.github/workflows/**/*.yml'
+            scripts:
+              - '**/*.sh'
+
+  validate-scripts:
+    name: "Validate Shell Scripts"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    needs: detect-changes
+    if: needs.detect-changes.outputs.scripts == 'true' || github.event_name == 'workflow_dispatch'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcb5dd907a8 # v5.0.0
+
+      - name: Setup mise
+        uses: jdx/mise-action@e3d7b8d67a7958d1207f6ed871e83b1ea780e7b0 # v3.3.1
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
+      - name: Run shellcheck on all scripts
+        run: |
+          set -euo pipefail
+
+          echo "### Shell Script Validation" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Find all shell scripts (excluding .git directory)
+          SCRIPTS=$(find . -path "*/.git/*" -prune -o -type f -name "*.sh" -print)
+          SCRIPT_COUNT=$(echo "$SCRIPTS" | wc -l)
+
+          echo "Found $SCRIPT_COUNT shell scripts to validate" | tee -a $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          FAILED=0
+          PASSED=0
+
+          for script in $SCRIPTS; do
+            echo "Checking: $script"
+            if shellcheck -P SCRIPTDIR -x "$script" 2>&1; then
+              echo "  ✅ $script" >> $GITHUB_STEP_SUMMARY
+              PASSED=$((PASSED + 1))
+            else
+              echo "  ❌ $script" >> $GITHUB_STEP_SUMMARY
+              echo "::error file=${script}::shellcheck validation failed"
+              FAILED=$((FAILED + 1))
+            fi
+          done
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Results:** $PASSED passed, $FAILED failed out of $SCRIPT_COUNT total" >> $GITHUB_STEP_SUMMARY
+
+          if [ $FAILED -gt 0 ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "❌ **Shellcheck validation failed**" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ **All scripts passed shellcheck**" >> $GITHUB_STEP_SUMMARY
+
+      - name: Smoke test critical scripts
+        run: |
+          set -euo pipefail
+
+          echo "### Script Smoke Tests" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          FAILED=0
+
+          # Test version.sh can execute
+          echo "Testing version.sh..."
+          if output=$(tools/releases/version.sh 2>&1); then
+            echo "✅ version.sh executed successfully" | tee -a $GITHUB_STEP_SUMMARY
+            echo "   Output: $output"
+          else
+            echo "::error file=tools/releases/version.sh::version.sh failed to execute"
+            echo "❌ version.sh failed" >> $GITHUB_STEP_SUMMARY
+            FAILED=1
+          fi
+
+          # Test helm.sh shows help
+          echo "Testing helm.sh --help..."
+          if tools/releases/helm.sh --help > /dev/null 2>&1; then
+            echo "✅ helm.sh --help executed successfully" | tee -a $GITHUB_STEP_SUMMARY
+          else
+            echo "::error file=tools/releases/helm.sh::helm.sh --help failed"
+            echo "❌ helm.sh --help failed" >> $GITHUB_STEP_SUMMARY
+            FAILED=1
+          fi
+
+          if [ $FAILED -gt 0 ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "❌ **Smoke tests failed**" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ **All smoke tests passed**" >> $GITHUB_STEP_SUMMARY
+
+  validate-workflows:
+    name: "Validate GitHub Workflows"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    needs: detect-changes
+    if: needs.detect-changes.outputs.workflows == 'true' || github.event_name == 'workflow_dispatch'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcb5dd907a8 # v5.0.0
+
+      - name: Setup mise
+        uses: jdx/mise-action@e3d7b8d67a7958d1207f6ed871e83b1ea780e7b0 # v3.3.1
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
+      - name: Validate all workflows with actionlint
+        run: |
+          set -euo pipefail
+
+          echo "### Workflow Validation" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Find all workflow files
+          WORKFLOWS=$(find .github/workflows -type f \( -name "*.yaml" -o -name "*.yml" \))
+          WORKFLOW_COUNT=$(echo "$WORKFLOWS" | wc -l)
+
+          echo "Found $WORKFLOW_COUNT workflow files to validate" | tee -a $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          FAILED=0
+          PASSED=0
+
+          for workflow in $WORKFLOWS; do
+            echo "Validating: $workflow"
+            if actionlint -color "$workflow" 2>&1; then
+              echo "  ✅ $workflow" >> $GITHUB_STEP_SUMMARY
+              PASSED=$((PASSED + 1))
+            else
+              echo "  ❌ $workflow" >> $GITHUB_STEP_SUMMARY
+              echo "::error file=${workflow}::actionlint validation failed"
+              FAILED=$((FAILED + 1))
+            fi
+          done
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Results:** $PASSED passed, $FAILED failed out of $WORKFLOW_COUNT total" >> $GITHUB_STEP_SUMMARY
+
+          if [ $FAILED -gt 0 ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "❌ **Workflow validation failed**" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ **All workflows passed validation**" >> $GITHUB_STEP_SUMMARY
+
+      - name: Check workflow_dispatch inputs are documented
+        run: |
+          set -euo pipefail
+
+          echo "### Input Documentation Check" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          FAILED=0
+          CHECKED=0
+
+          # Check all workflows with workflow_dispatch triggers
+          for workflow in .github/workflows/*.yaml .github/workflows/*.yml; do
+            [ -f "$workflow" ] || continue
+
+            # Check if workflow has workflow_dispatch trigger
+            if ! yq eval '.on | has("workflow_dispatch")' "$workflow" 2>/dev/null | grep -q true; then
+              continue
+            fi
+
+            # Check if it has inputs
+            if ! yq eval '.on.workflow_dispatch | has("inputs")' "$workflow" 2>/dev/null | grep -q true; then
+              continue
+            fi
+
+            CHECKED=$((CHECKED + 1))
+            echo "Checking inputs in: $workflow"
+
+            # Check that all inputs have descriptions
+            INPUTS_WITHOUT_DESC=$(yq eval '.on.workflow_dispatch.inputs | to_entries | .[] | select(.value.description == null or .value.description == "") | .key' "$workflow" 2>/dev/null || echo "")
+
+            if [ -n "$INPUTS_WITHOUT_DESC" ]; then
+              echo "::error file=${workflow}::Found workflow inputs without descriptions: $INPUTS_WITHOUT_DESC"
+              echo "  ❌ $workflow - Missing descriptions for: $INPUTS_WITHOUT_DESC" >> $GITHUB_STEP_SUMMARY
+              FAILED=$((FAILED + 1))
+            else
+              echo "  ✅ $workflow - All inputs documented" >> $GITHUB_STEP_SUMMARY
+            fi
+          done
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Checked $CHECKED workflows with workflow_dispatch inputs" >> $GITHUB_STEP_SUMMARY
+
+          if [ $FAILED -gt 0 ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "❌ **Input documentation check failed**" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ **All workflow inputs are documented**" >> $GITHUB_STEP_SUMMARY
+
+  summary:
+    name: "Test Summary"
+    runs-on: ubuntu-24.04
+    needs: [detect-changes, validate-scripts, validate-workflows]
+    if: always()
+
+    steps:
+      - name: Generate summary
+        run: |
+          echo "## Workflows & Scripts Quality Check Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Check if any relevant files changed
+          WORKFLOWS_CHANGED="${{ needs.detect-changes.outputs.workflows }}"
+          SCRIPTS_CHANGED="${{ needs.detect-changes.outputs.scripts }}"
+
+          # Get results (skipped jobs return empty, not 'skipped')
+          SCRIPTS_RESULT="${{ needs.validate-scripts.result }}"
+          WORKFLOWS_RESULT="${{ needs.validate-workflows.result }}"
+
+          # Handle skipped jobs (no changes detected)
+          if [ "$SCRIPTS_CHANGED" != "true" ] && [ "$WORKFLOWS_CHANGED" != "true" ]; then
+            echo "✅ **No workflow or script changes detected - validation skipped**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "This is expected and the check passes automatically." >> $GITHUB_STEP_SUMMARY
+            exit 0
+          fi
+
+          # Check validation results
+          FAILED=false
+
+          if [ "$SCRIPTS_CHANGED" == "true" ]; then
+            if [ "$SCRIPTS_RESULT" == "success" ]; then
+              echo "- ✅ Shell scripts validation passed" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "- ❌ Shell scripts validation: $SCRIPTS_RESULT" >> $GITHUB_STEP_SUMMARY
+              FAILED=true
+            fi
+          else
+            echo "- ⏭️  Shell scripts validation skipped (no changes)" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [ "$WORKFLOWS_CHANGED" == "true" ]; then
+            if [ "$WORKFLOWS_RESULT" == "success" ]; then
+              echo "- ✅ Workflow files validation passed" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "- ❌ Workflow files validation: $WORKFLOWS_RESULT" >> $GITHUB_STEP_SUMMARY
+              FAILED=true
+            fi
+          else
+            echo "- ⏭️  Workflow files validation skipped (no changes)" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "$FAILED" == "true" ]; then
+            echo "❌ **Some validations failed**" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          else
+            echo "✅ **All validations passed**" >> $GITHUB_STEP_SUMMARY
+            exit 0
+          fi
