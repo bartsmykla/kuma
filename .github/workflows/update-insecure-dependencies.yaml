@@ -10,6 +10,7 @@ jobs:
   update-insecure-dependencies:
     env:
       OSV_SCANNER_ADDITIONAL_OPTS: ""
+      SECURITY_UPDATE_CONFIG: ${{ vars.SECURITY_UPDATE_CONFIG || '{}' }}
     timeout-minutes: 20
     needs: active-branches
     strategy:
