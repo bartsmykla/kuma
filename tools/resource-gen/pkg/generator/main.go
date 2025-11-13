@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"path"
+	"path/filepath"
 	"reflect"
 	"sort"
 	"strings"
@@ -482,12 +483,44 @@ func openApiGenerator(pkg string, resources []ResourceInfo) error {
 			return snakeToCamel(key)
 		},
 	}
-	// Module path for v2
+	// Workaround: AddGoComments requires the correct module path to load Go source
+	// comments for OpenAPI schema descriptions. Without this, field descriptions
+	// are lost during schema generation.
 	modulePath := "github.com/kumahq/kuma/v2"
-	err := reflector.AddGoComments(modulePath, path.Join(readDir, "api/"))
+
+	// AddGoComments uses Go's package loading which requires the path to be relative
+	// to the current working directory. For downstream projects using symlinks,
+	// we need to temporarily change to the resolved directory.
+	originalDir, err := os.Getwd()
 	if err != nil {
+		return fmt.Errorf("failed to get working directory: %w", err)
+	}
+
+	// Resolve symlinks in readDir to get actual module path
+	resolvedReadDir, err := filepath.EvalSymlinks(readDir)
+	if err != nil {
+		resolvedReadDir = readDir
+	}
+
+	// Convert to absolute path
+	absReadDir, err := filepath.Abs(resolvedReadDir)
+	if err != nil {
+		return fmt.Errorf("failed to get absolute path: %w", err)
+	}
+
+	// Change to module root directory only for AddGoComments
+	// Must restore before ReflectFromType to avoid path issues in recursive calls
+	if err := os.Chdir(absReadDir); err != nil {
+		return fmt.Errorf("failed to change directory to %s: %w", absReadDir, err)
+	}
+	// Always restore the original directory, even if it fails.
+	// Failure to restore is rare and would only affect subsequent operations.
+	defer os.Chdir(originalDir) //nolint:errcheck
+
+	if err := reflector.AddGoComments(modulePath, "api/"); err != nil {
 		return err
 	}
+
 	reflector.Mapper = typeMapperFactory(reflector)
 	for _, r := range resources {
 		tpe, exists := ProtoTypeToType[r.ResourceType]
