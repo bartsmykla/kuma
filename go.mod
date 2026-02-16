@@ -76,7 +76,7 @@ require (
 	golang.org/x/sys v0.38.0
 	golang.org/x/text v0.31.0
 	golang.org/x/tools v0.38.0
-	gonum.org/v1/gonum v0.16.0
+	gonum.org/v1/gonum v0.17.0
 	google.golang.org/genproto/googleapis/api v0.0.0-20251111163417-95abcf5c77ba
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20251111163417-95abcf5c77ba
 	google.golang.org/grpc v1.76.0
