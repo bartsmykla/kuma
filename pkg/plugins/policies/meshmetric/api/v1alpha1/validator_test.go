@@ -37,7 +37,7 @@ default:
   backends:
     - type: Prometheus
       prometheus:
-        clientId: main-backend 
+        clientId: main-backend
         port: 5670
         path: /metrics
         tls:
@@ -45,6 +45,32 @@ default:
     - type: OpenTelemetry
       openTelemetry:
         endpoint: otel-collector:4778
+`),
+		Entry("http otel endpoint", `
+type: MeshMetric
+mesh: mesh-1
+name: metrics-1
+targetRef:
+  kind: MeshService
+  name: svc-1
+default:
+  backends:
+    - type: OpenTelemetry
+      openTelemetry:
+        endpoint: "http://otel-collector:4318"
+`),
+		Entry("https otel endpoint", `
+type: MeshMetric
+mesh: mesh-1
+name: metrics-1
+targetRef:
+  kind: MeshService
+  name: svc-1
+default:
+  backends:
+    - type: OpenTelemetry
+      openTelemetry:
+        endpoint: "https://otel-collector.example.com"
 `),
 	)
 
@@ -182,10 +208,10 @@ default:
         endpoint: "asdasd123"
 `),
 		ErrorCase(
-			"invalid url",
+			"invalid otel scheme",
 			validators.Violation{
 				Field:   "spec.default.backends.backend[0].openTelemetry.endpoint",
-				Message: "must not use schema",
+				Message: "URL scheme must be http or https",
 			},
 			`
 type: MeshMetric
@@ -198,7 +224,45 @@ default:
   backends:
     - type: OpenTelemetry
       openTelemetry:
-        endpoint: "http://endpoint:8023"
+        endpoint: "ftp://endpoint:8023"
+`),
+		ErrorCase(
+			"invalid otel port",
+			validators.Violation{
+				Field:   "spec.default.backends.backend[0].openTelemetry.endpoint",
+				Message: "port must be valid (1-65535)",
+			},
+			`
+type: MeshMetric
+mesh: mesh-1
+name: metrics-1
+targetRef:
+  kind: MeshService
+  name: svc-1
+default:
+  backends:
+    - type: OpenTelemetry
+      openTelemetry:
+        endpoint: "http://host:99999"
+`),
+		ErrorCase(
+			"malformed http otel url",
+			validators.Violation{
+				Field:   "spec.default.backends.backend[0].openTelemetry.endpoint",
+				Message: "must be a valid URL",
+			},
+			`
+type: MeshMetric
+mesh: mesh-1
+name: metrics-1
+targetRef:
+  kind: MeshService
+  name: svc-1
+default:
+  backends:
+    - type: OpenTelemetry
+      openTelemetry:
+        endpoint: "http://"
 `),
 		ErrorCase(
 			"undefined openTelemetry backend when type is OpenTelemetry",

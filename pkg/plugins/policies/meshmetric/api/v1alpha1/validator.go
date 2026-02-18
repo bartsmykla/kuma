@@ -3,7 +3,6 @@ package v1alpha1
 import (
 	"fmt"
 	"regexp"
-	"strings"
 
 	"github.com/asaskevich/govalidator"
 
@@ -12,6 +11,7 @@ import (
 	"github.com/kumahq/kuma/v2/pkg/core/resources/apis/mesh"
 	core_model "github.com/kumahq/kuma/v2/pkg/core/resources/model"
 	"github.com/kumahq/kuma/v2/pkg/core/validators"
+	"github.com/kumahq/kuma/v2/pkg/plugins/policies/core/otel"
 )
 
 func (r *MeshMetricResource) validate() error {
@@ -146,12 +146,16 @@ func validateBackend(backends *[]Backend) validators.ValidationError {
 			if backend.OpenTelemetry == nil {
 				verr.AddViolationAt(path.Field("openTelemetry"), validators.MustBeDefined)
 			} else {
+				otelPath := path.Field("openTelemetry")
 				endpoint := backend.OpenTelemetry.Endpoint
-				if !govalidator.IsURL(endpoint) {
-					verr.AddViolationAt(path.Field("openTelemetry").Field("endpoint"), "must be a valid url")
-				}
-				if strings.HasPrefix(endpoint, "http://") || strings.HasPrefix(endpoint, "https://") {
-					verr.AddViolationAt(path.Field("openTelemetry").Field("endpoint"), "must not use schema")
+				if endpoint == "" {
+					verr.AddViolationAt(otelPath.Field("endpoint"), validators.MustNotBeEmpty)
+				} else {
+					isURL, endpointErr := otel.ValidateEndpoint(otelPath.Field("endpoint"), endpoint)
+					verr.AddError("", endpointErr)
+					if !isURL && !govalidator.IsURL(endpoint) {
+						verr.AddViolationAt(otelPath.Field("endpoint"), "must be a valid url")
+					}
 				}
 			}
 		default:

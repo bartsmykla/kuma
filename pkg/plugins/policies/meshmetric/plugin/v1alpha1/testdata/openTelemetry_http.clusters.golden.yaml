@@ -1,0 +1,18 @@
+resources:
+- name: _kuma:metrics:opentelemetry:http-otel-collector.observability.svc-4318
+  resource:
+    '@type': type.googleapis.com/envoy.config.cluster.v3.Cluster
+    altStatName: _kuma_metrics_opentelemetry_http-otel-collector_observability_svc-4318
+    connectTimeout: 5s
+    dnsLookupFamily: V4_ONLY
+    loadAssignment:
+      clusterName: _kuma:metrics:opentelemetry:http-otel-collector.observability.svc-4318
+      endpoints:
+      - lbEndpoints:
+        - endpoint:
+            address:
+              socketAddress:
+                address: otel-collector.observability.svc
+                portValue: 4318
+    name: _kuma:metrics:opentelemetry:http-otel-collector.observability.svc-4318
+    type: STRICT_DNS

@@ -3,7 +3,6 @@ package v1alpha1
 import (
 	net_url "net/url"
 	"strconv"
-	"strings"
 
 	envoy_listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	envoy_resource "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
@@ -17,6 +16,7 @@ import (
 	"github.com/kumahq/kuma/v2/pkg/core/xds"
 	xds_types "github.com/kumahq/kuma/v2/pkg/core/xds/types"
 	"github.com/kumahq/kuma/v2/pkg/plugins/policies/core/matchers"
+	"github.com/kumahq/kuma/v2/pkg/plugins/policies/core/otel"
 	core_rules "github.com/kumahq/kuma/v2/pkg/plugins/policies/core/rules"
 	"github.com/kumahq/kuma/v2/pkg/plugins/policies/core/rules/resolve"
 	policies_xds "github.com/kumahq/kuma/v2/pkg/plugins/policies/core/xds"
@@ -210,7 +210,7 @@ func applyToClusters(ctx xds_context.Context, rules core_rules.SingleItemRules, 
 			plugin_xds.GetTracingClusterName(provider),
 		)
 	case backend.OpenTelemetry != nil:
-		endpoint = endpointForOpenTelemetry(backend.OpenTelemetry)
+		endpoint = otel.ParseEndpoint(backend.OpenTelemetry.Endpoint, 4317)
 		provider = plugin_xds.OpenTelemetryProviderName
 		name = getNameOrDefault(
 			core_system_names.AsSystemName(core_system_names.JoinSections("meshtrace_otel", core_system_names.CleanName(backend.OpenTelemetry.Endpoint))),
@@ -254,43 +254,6 @@ func endpointForZipkin(cfg *api.ZipkinBackend) *xds.Endpoint {
 			TLSEnabled:         url.Scheme == "https",
 			AllowRenegotiation: true,
 		},
-	}
-}
-
-func endpointForOpenTelemetry(cfg *api.OpenTelemetryBackend) *xds.Endpoint {
-	if strings.HasPrefix(cfg.Endpoint, "http://") || strings.HasPrefix(cfg.Endpoint, "https://") {
-		// Error is ignored because the endpoint was already validated by the validator.
-		url, _ := net_url.ParseRequestURI(cfg.Endpoint)
-		port := uint32(80)
-		if url.Scheme == "https" {
-			port = 443
-		}
-		if portStr := url.Port(); portStr != "" {
-			if val, err := strconv.ParseInt(portStr, 10, 32); err == nil {
-				port = uint32(val)
-			}
-		}
-		return &xds.Endpoint{
-			Target: url.Hostname(),
-			Port:   port,
-			ExternalService: &xds.ExternalService{
-				TLSEnabled:         url.Scheme == "https",
-				AllowRenegotiation: true,
-			},
-		}
-	}
-
-	// gRPC endpoint (host:port format)
-	target := strings.Split(cfg.Endpoint, ":")
-	port := uint32(4317) // default gRPC port
-	if len(target) > 1 {
-		if val, err := strconv.ParseInt(target[1], 10, 32); err == nil && val > 0 && val <= 65535 {
-			port = uint32(val)
-		}
-	}
-	return &xds.Endpoint{
-		Target: target[0],
-		Port:   port,
 	}
 }
 

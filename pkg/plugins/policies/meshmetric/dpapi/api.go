@@ -41,4 +41,5 @@ type Backend struct {
 type OpenTelemetryBackend struct {
 	Endpoint        string       `json:"endpoint"`
 	RefreshInterval k8s.Duration `json:"refreshInterval"`
+	Protocol        string       `json:"protocol,omitempty"`
 }

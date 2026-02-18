@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"maps"
 	"net/url"
-	"strconv"
 	"strings"
 	"time"
 
@@ -25,6 +24,7 @@ import (
 	core_xds "github.com/kumahq/kuma/v2/pkg/core/xds"
 	"github.com/kumahq/kuma/v2/pkg/mads"
 	"github.com/kumahq/kuma/v2/pkg/plugins/policies/core/matchers"
+	"github.com/kumahq/kuma/v2/pkg/plugins/policies/core/otel"
 	policies_xds "github.com/kumahq/kuma/v2/pkg/plugins/policies/core/xds"
 	api "github.com/kumahq/kuma/v2/pkg/plugins/policies/meshmetric/api/v1alpha1"
 	"github.com/kumahq/kuma/v2/pkg/plugins/policies/meshmetric/dpapi"
@@ -172,7 +172,7 @@ func configureOpenTelemetryBackend(rs *core_xds.ResourceSet, proxy *core_xds.Pro
 		return nil
 	}
 	getNameOrDefault := core_system_names.GetNameOrDefault(unifiedNaming)
-	endpoint := endpointForOpenTelemetry(openTelemetryBackend.Endpoint)
+	endpoint := otel.ParseEndpoint(openTelemetryBackend.Endpoint, OpenTelemetryGrpcPort)
 	backendName := backendNameFrom(openTelemetryBackend.Endpoint)
 	systemName := core_system_names.AsSystemName(core_system_names.JoinSections("meshmetric_otel", core_system_names.JoinSectionParts(core_system_names.CleanName(backendName))))
 
@@ -258,13 +258,17 @@ func createDynamicConfig(
 	}
 	for _, backend := range openTelemetryBackends {
 		backendName := backendNameFrom(backend.Endpoint)
+		otelBackend := dpapi.OpenTelemetryBackend{
+			Endpoint:        core_xds.OpenTelemetrySocketName(proxy.Metadata.WorkDir, backendName),
+			RefreshInterval: pointer.DerefOr(backend.RefreshInterval, DefaultRefreshInterval),
+		}
+		if otel.IsHTTP(backend.Endpoint) {
+			otelBackend.Protocol = "http"
+		}
 		backends = append(backends, dpapi.Backend{
-			Type: string(api.OpenTelemetryBackendType),
-			Name: &backendName,
-			OpenTelemetry: &dpapi.OpenTelemetryBackend{
-				Endpoint:        core_xds.OpenTelemetrySocketName(proxy.Metadata.WorkDir, backendName),
-				RefreshInterval: pointer.DerefOr(backend.RefreshInterval, DefaultRefreshInterval),
-			},
+			Type:          string(api.OpenTelemetryBackendType),
+			Name:          &backendName,
+			OpenTelemetry: &otelBackend,
 		})
 	}
 
@@ -300,19 +304,6 @@ func createDynamicConfig(
 				ExtraLabels:  extraLabels,
 			},
 		},
-	}
-}
-
-func endpointForOpenTelemetry(endpoint string) *core_xds.Endpoint {
-	target := strings.Split(endpoint, ":")
-	port := uint32(OpenTelemetryGrpcPort) // default gRPC port
-	if len(target) > 1 {
-		val, _ := strconv.ParseInt(target[1], 10, 32)
-		port = uint32(val)
-	}
-	return &core_xds.Endpoint{
-		Target: target[0],
-		Port:   port,
 	}
 }
 

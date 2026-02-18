@@ -5,11 +5,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
+	"net/http"
 	"time"
 
 	"github.com/pkg/errors"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
+	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 
 	"github.com/kumahq/kuma/v2/app/kuma-dp/pkg/dataplane/metrics"
@@ -165,12 +168,18 @@ func startExporter(ctx context.Context, backend *dpapi.OpenTelemetryBackend, pro
 	if backend == nil {
 		return nil, nil
 	}
-	logger.Info("Starting OpenTelemetry exporter", "backend", backendName)
-	exporter, err := otlpmetricgrpc.New(
-		ctx,
-		otlpmetricgrpc.WithEndpoint(fmt.Sprintf("unix://%s", backend.Endpoint)),
-		otlpmetricgrpc.WithInsecure(),
-	)
+	logger.Info("Starting OpenTelemetry exporter", "backend", backendName, "protocol", backend.Protocol)
+	var exporter sdkmetric.Exporter
+	var err error
+	if backend.Protocol == "http" {
+		exporter, err = newHTTPExporter(ctx, backend.Endpoint)
+	} else {
+		exporter, err = otlpmetricgrpc.New(
+			ctx,
+			otlpmetricgrpc.WithEndpoint(fmt.Sprintf("unix://%s", backend.Endpoint)),
+			otlpmetricgrpc.WithInsecure(),
+		)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -184,6 +193,23 @@ func startExporter(ctx context.Context, backend *dpapi.OpenTelemetryBackend, pro
 		),
 		appliedConfig: *backend,
 	}, nil
+}
+
+func newHTTPExporter(ctx context.Context, socketPath string) (sdkmetric.Exporter, error) {
+	// The otlpmetrichttp SDK doesn't support unix:// natively, so we pass a
+	// custom HTTP client that dials the Unix socket for all connections.
+	httpClient := &http.Client{
+		Transport: &http.Transport{
+			DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
+				return (&net.Dialer{}).DialContext(ctx, "unix", socketPath)
+			},
+		},
+	}
+	return otlpmetrichttp.New(ctx,
+		otlpmetrichttp.WithEndpoint("localhost"),
+		otlpmetrichttp.WithHTTPClient(httpClient),
+		otlpmetrichttp.WithInsecure(),
+	)
 }
 
 func getOpenTelemetryBackends(allBackends []dpapi.Backend) map[string]*dpapi.OpenTelemetryBackend {

@@ -18,8 +18,12 @@ type OpenTelemetryConfigurer struct {
 }
 
 func (oc *OpenTelemetryConfigurer) ConfigureCluster(isIPv6 bool) (envoy_common.NamedResource, error) {
-	return envoy_clusters.NewClusterBuilder(oc.ApiVersion, oc.ClusterName).
-		Configure(envoy_clusters.Http2()).
+	builder := envoy_clusters.NewClusterBuilder(oc.ApiVersion, oc.ClusterName)
+	// Only force HTTP/2 for gRPC endpoints. HTTP endpoints use default HTTP/1.1.
+	if oc.Endpoint.ExternalService == nil {
+		builder.Configure(envoy_clusters.Http2())
+	}
+	return builder.
 		Configure(envoy_clusters.ProvidedEndpointCluster(isIPv6, *oc.Endpoint)).
 		Configure(envoy_clusters.ClientSideTLS([]core_xds.Endpoint{*oc.Endpoint})).
 		Configure(envoy_clusters.DefaultTimeout()).
@@ -27,18 +31,22 @@ func (oc *OpenTelemetryConfigurer) ConfigureCluster(isIPv6 bool) (envoy_common.N
 }
 
 func (oc *OpenTelemetryConfigurer) ConfigureListener() (envoy_common.NamedResource, error) {
+	filterChainBuilder := envoy_listeners.NewFilterChainBuilder(oc.ApiVersion, envoy_common.AnonymousResource).
+		Configure(envoy_listeners.StaticEndpoints(
+			oc.IPv6Enabled,
+			oc.ListenerName,
+			[]*envoy_common.StaticEndpointPath{{
+				ClusterName: oc.ClusterName,
+				Path:        "/",
+			}},
+		))
+	// Only add gRPC stats filter for gRPC endpoints.
+	if oc.Endpoint.ExternalService == nil {
+		filterChainBuilder.Configure(envoy_listeners.GrpcStats())
+	}
 	return envoy_listeners.NewListenerBuilder(oc.ApiVersion, oc.ListenerName).
 		Configure(envoy_listeners.PipeListener(oc.SocketName)).
 		Configure(envoy_listeners.StatPrefix(oc.StatPrefix)).
-		Configure(envoy_listeners.FilterChain(
-			envoy_listeners.NewFilterChainBuilder(oc.ApiVersion, envoy_common.AnonymousResource).
-				Configure(envoy_listeners.StaticEndpoints(oc.IPv6Enabled, oc.ListenerName, []*envoy_common.StaticEndpointPath{
-					{
-						ClusterName: oc.ClusterName,
-						Path:        "/",
-					},
-				})).
-				Configure(envoy_listeners.GrpcStats()),
-		)).
+		Configure(envoy_listeners.FilterChain(filterChainBuilder)).
 		Build()
 }

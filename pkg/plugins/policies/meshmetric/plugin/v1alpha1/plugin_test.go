@@ -373,6 +373,78 @@ var _ = Describe("MeshMetric", func() {
 				).
 				Build(),
 		}),
+		Entry("openTelemetry_http", testCase{
+			context: *xds_builders.Context().WithMeshBuilder(samples.MeshDefaultBuilder()).Build(),
+			proxy: xds_builders.Proxy().
+				WithID(*core_xds.BuildProxyId("default", "backend")).
+				WithDataplane(
+					samples.DataplaneBackendBuilder().
+						WithLabels(workloadLabels()),
+				).
+				WithMetadata(&core_xds.DataplaneMetadata{WorkDir: "/tmp"}).
+				WithPolicies(xds_builders.MatchedPolicies().
+					WithSingleItemPolicy(api.MeshMetricType, core_rules.SingleItemRules{
+						Rules: []*core_rules.Rule{
+							{
+								Subset: []subsetutils.Tag{},
+								Conf: api.Conf{
+									Applications: &[]api.Application{
+										{
+											Path: "/metrics",
+											Port: 8080,
+										},
+									},
+									Backends: &[]api.Backend{
+										{
+											Type: api.OpenTelemetryBackendType,
+											OpenTelemetry: &api.OpenTelemetryBackend{
+												Endpoint:        "http://otel-collector.observability.svc:4318",
+												RefreshInterval: &k8s.Duration{Duration: 10 * time.Second},
+											},
+										},
+									},
+								},
+							},
+						},
+					})).
+				Build(),
+		}),
+		Entry("openTelemetry_https", testCase{
+			context: *xds_builders.Context().WithMeshBuilder(samples.MeshDefaultBuilder()).Build(),
+			proxy: xds_builders.Proxy().
+				WithID(*core_xds.BuildProxyId("default", "backend")).
+				WithDataplane(
+					samples.DataplaneBackendBuilder().
+						WithLabels(workloadLabels()),
+				).
+				WithMetadata(&core_xds.DataplaneMetadata{WorkDir: "/tmp"}).
+				WithPolicies(xds_builders.MatchedPolicies().
+					WithSingleItemPolicy(api.MeshMetricType, core_rules.SingleItemRules{
+						Rules: []*core_rules.Rule{
+							{
+								Subset: []subsetutils.Tag{},
+								Conf: api.Conf{
+									Applications: &[]api.Application{
+										{
+											Path: "/metrics",
+											Port: 8080,
+										},
+									},
+									Backends: &[]api.Backend{
+										{
+											Type: api.OpenTelemetryBackendType,
+											OpenTelemetry: &api.OpenTelemetryBackend{
+												Endpoint:        "https://otel-collector.observability.svc:4318",
+												RefreshInterval: &k8s.Duration{Duration: 10 * time.Second},
+											},
+										},
+									},
+								},
+							},
+						},
+					})).
+				Build(),
+		}),
 		Entry("multiple_otel", testCase{
 			context: *xds_builders.Context().WithMeshBuilder(samples.MeshDefaultBuilder()).Build(),
 			proxy: xds_builders.Proxy().
