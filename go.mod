@@ -8,7 +8,7 @@ require (
 	github.com/Masterminds/sprig/v3 v3.3.0
 	github.com/Nordix/simple-ipam v1.0.0
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2
-	github.com/bakito/go-log-logr-adapter v0.0.3-0.20260622121138-ddf65ac69581
+	github.com/bakito/go-log-logr-adapter v0.0.3-0.20260727213026-f0426b322018
 	github.com/cespare/xxhash/v2 v2.3.0
 	github.com/cilium/ebpf v0.22.0
 	github.com/containernetworking/cni v1.3.0
@@ -20,7 +20,7 @@ require (
 	github.com/envoyproxy/protoc-gen-validate v1.3.3
 	github.com/evanphx/json-patch/v5 v5.9.11
 	github.com/exaring/otelpgx v0.11.1
-	github.com/go-logr/logr v1.4.3
+	github.com/go-logr/logr v1.4.4
 	github.com/go-logr/zapr v1.3.0
 	github.com/goburrow/cache v0.1.4
 	github.com/golang-jwt/jwt/v5 v5.3.1
