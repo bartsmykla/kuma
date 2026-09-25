@@ -97,7 +97,7 @@ jobs:
             scripts:
               - '**/*.sh'
 
-      - uses: reviewdog/action-shellcheck@4c07458293ac342d477251099501a718ae5ef86e # v1.32.0
+      - uses: reviewdog/action-shellcheck@a94d585085f1f5215ae65f4de34e7bbd0523d550 # v1.33.0
         if: >-
           github.event_name == 'workflow_dispatch' ||
           steps.changes.outputs.scripts == 'true'
